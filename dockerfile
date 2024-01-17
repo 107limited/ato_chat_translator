@@ -12,6 +12,4 @@ RUN go get ./...
 
 RUN go build -o ato-chat-app
 
-USER $USER
-
 CMD ["ato-chat-app"]
