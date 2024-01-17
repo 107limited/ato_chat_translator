@@ -23,9 +23,8 @@ type DBConfig struct {
 func LoadDBConfig() DBConfig {
 	err := godotenv.Load()
 	if err != nil {
-		log.Fatal("Error loading .env file")
+		log.Println("Warning: Error loading .env file. Using default values or values from the environment.")
 	}
-
 	return DBConfig{
 		Username: os.Getenv("DB_USERNAME"),
 		Password: os.Getenv("DB_PASSWORD"),
@@ -40,6 +39,7 @@ func LoadDBConfig() DBConfig {
 func getEnvAsInt(key string, defaultValue int) int {
 	valueStr := os.Getenv(key)
 	if valueStr == "" {
+		log.Printf("Using default value for %s: %d\n", key, defaultValue)
 		return defaultValue
 	}
 

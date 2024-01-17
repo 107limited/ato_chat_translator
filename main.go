@@ -5,13 +5,17 @@ import (
 	"ato_chat/config"
 	"ato_chat/translation"
 	"ato_chat/web"
+	"context"
 	"database/sql"
 	"fmt"
 	"log"
 	"net/http"
 	"os"
+	"os/signal"
+	"syscall"
 
 	_ "github.com/go-sql-driver/mysql"
+	"github.com/rs/cors"
 )
 
 func main() {
@@ -46,6 +50,32 @@ func main() {
 
 	// Create HTTP server
 	server := web.NewServer(conversationRepo, gpt4Translator)
+
+	// Create CORS handler
+	corsHandler := cors.Default().Handler
+
+	// Attach the CORS handler before your routes
+	server.Router.Use(corsHandler)
+
+	// Create a context that listens for the interrupt signal from the OS
+	_, cancel := context.WithCancel(context.Background())
+	defer cancel()
+
+	// Create a channel to listen for interrupts
+	interrupt := make(chan os.Signal, 1)
+	signal.Notify(interrupt, os.Interrupt, syscall.SIGTERM)
+
+	go func() {
+		// Wait for interrupt signal
+		<-interrupt
+
+		// Perform cleanup tasks and shut down gracefully
+		fmt.Println("\nShutting down gracefully...")
+		// Additional cleanup code if needed
+
+		// Cancel the context to stop the server
+		cancel()
+	}()
 
 	// Start HTTP server
 	port := "8080"
