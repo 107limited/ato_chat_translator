@@ -1,0 +1,43 @@
+# Conversational ATO CHAT API Documentation
+
+saveConversation:
+  description: Save a conversation in the system.
+  endpoint: POST http://localhost:8080/api/conversations
+  requestBody:
+    user_id: "user1"
+    speaker: "Ato"
+    company_id: 107
+    chat_room_id: "room13"
+    original_message: "Hello, what's time is it??"
+  responseBody:
+    conversations:
+      - speaker: "Ato"
+        original_message: "Hello, what's time is it??"
+        translated_message: "こんにちは、今何時ですか？"
+
+getAllConversation:
+  description: Retrieve all conversations in the system.
+  endpoint: GET http://localhost:8080/api/conversations
+  response:
+    id: 4
+    japanese_text: "こんにちは、今何時ですか？"
+    english_text: "Hello, what's time is it??"
+    speaker: ""
+    user_id: "user1"
+    company_id: 107
+    chat_room_id: "room13"
+    original_message: ""
+    translated_message: ""
+    created_at: "0001-01-01T00:00:00Z"
+
+translateMessage:
+  description: Translate a message to another language.
+  endpoint: POST http://localhost:8080/api/translate
+  requestBody:
+    speaker: "107"
+    original_message: "あなたはどこに住んでいますか？"
+  responseBody:
+    conversations:
+      - speaker: "107"
+        original_message: "あなたはどこに住んでいますか？"
+        translated_message: "Where do you live?"
