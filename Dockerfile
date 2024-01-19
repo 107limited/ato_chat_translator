@@ -10,6 +10,8 @@ COPY ./ .
 
 RUN go get -d -v ./...
 
-RUN go build -o ato-chat-app .
+RUN go build -o ato-chat .
 
-CMD ["./ato-chat-app"]
+CMD ["./ato-chat"]
+
+

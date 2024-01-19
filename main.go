@@ -11,8 +11,6 @@ import (
 	"log"
 	"net/http"
 	"os"
-	"os/signal"
-	"syscall"
 
 	_ "github.com/go-sql-driver/mysql"
 	"github.com/rs/cors"
@@ -61,24 +59,14 @@ func main() {
 	_, cancel := context.WithCancel(context.Background())
 	defer cancel()
 
-	// Create a channel to listen for interrupts
-	interrupt := make(chan os.Signal, 1)
-	signal.Notify(interrupt, os.Interrupt, syscall.SIGTERM)
 
-	go func() {
-		// Wait for interrupt signal
-		<-interrupt
-
-		// Perform cleanup tasks and shut down gracefully
-		fmt.Println("\nShutting down gracefully...")
-		// Additional cleanup code if needed
-
-		// Cancel the context to stop the server
-		cancel()
-	}()
+	// Get the server port from the environment or .env file
+	port := os.Getenv("PORT_SERVER")
+	if port == "" {
+		port = "8080" // Port default jika tidak ditemukan
+	}
 
 	// Start HTTP server
-	port := "8080"
 	fmt.Printf("Server is running on port %s...\n", port)
 	log.Fatal(http.ListenAndServe(":"+port, server.Router))
 }
