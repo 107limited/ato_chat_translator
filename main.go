@@ -49,23 +49,17 @@ func main() {
 	// Create HTTP server
 	server := web.NewServer(conversationRepo, gpt4Translator)
 
-	// Create CORS handler with specific configurations
-    corsHandler := cors.New(cors.Options{
-		AllowedOrigins: []string{"*"},
-		AllowedMethods: []string{"GET", "POST", "OPTIONS"},
-		AllowedHeaders: []string{"Content-Type", "Authorization"},
-		AllowCredentials: true,
-		Debug: true,
+	// // Create CORS handler with specific configurations
+	corsHandler := cors.New(cors.Options{
+		AllowedOrigins:   []string{"*"},
 	}).Handler
-	
 
-    // Attach the CORS handler before your routes
-    server.Router.Use(corsHandler)
+	// Attach the CORS handler before your routes
+	server.Router.Use(corsHandler)
 
 	// Create a context that listens for the interrupt signal from the OS
 	_, cancel := context.WithCancel(context.Background())
 	defer cancel()
-
 
 	// Get the server port from the environment or .env file
 	port := os.Getenv("PORT_SERVER")
