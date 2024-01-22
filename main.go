@@ -13,7 +13,7 @@ import (
 	"os"
 
 	_ "github.com/go-sql-driver/mysql"
-	"github.com/rs/cors"
+	//"github.com/rs/cors"
 )
 
 func main() {
@@ -50,12 +50,12 @@ func main() {
 	server := web.NewServer(conversationRepo, gpt4Translator)
 
 	// // Create CORS handler with specific configurations
-	corsHandler := cors.New(cors.Options{
-		AllowedOrigins:   []string{"*"},
-	}).Handler
+	// corsHandler := cors.New(cors.Options{
+	// 	AllowedOrigins:   []string{"*"},
+	// }).Handler
 
-	// Attach the CORS handler before your routes
-	server.Router.Use(corsHandler)
+	// // Attach the CORS handler before your routes
+	// server.Router.Use(corsHandler)
 
 	// Create a context that listens for the interrupt signal from the OS
 	_, cancel := context.WithCancel(context.Background())
