@@ -13,7 +13,7 @@ import (
 	"os"
 
 	_ "github.com/go-sql-driver/mysql"
-	"github.com/gorilla/mux"
+	"github.com/gorilla/handlers"
 )
 
 func main() {
@@ -49,25 +49,14 @@ func main() {
 	// Create HTTP server
 	server := web.NewServer(conversationRepo, gpt4Translator)
 
-	// Create a Gorilla mux router
-	router := mux.NewRouter()
+	// Where ORIGIN_ALLOWED is like scheme://dns[:port], or * (insecure)
+	headersOk := handlers.AllowedHeaders([]string{"X-Requested-With"})
+	originsOk := handlers.AllowedOrigins([]string{os.Getenv("ORIGIN_ALLOWED")})
+	methodsOk := handlers.AllowedMethods([]string{"GET", "HEAD", "POST", "PUT", "OPTIONS"})
 
-	// Penanganan CORS langsung di dalam main.go
-	router.HandleFunc("/index", func(w http.ResponseWriter, r *http.Request) {
-		w.Header().Set("Access-Control-Allow-Origin", "*")
-		w.Header().Set("Access-Control-Allow-Methods", "OPTIONS, GET, POST, PUT")
-		w.Header().Set("Access-Control-Allow-Headers", "Content-Type, X-CSRF-Token")
-
-		if r.Method == "OPTIONS" {
-			w.Write([]byte("allowed"))
-			return
-		}
-
-		w.Write([]byte("hello"))
-	})
-
-	// Terapkan router Gorilla mux ke server
-	server.Router = router
+	// start server listen
+	// with error handling
+	log.Fatal(http.ListenAndServe(":"+os.Getenv("PORT"), handlers.CORS(originsOk, headersOk, methodsOk)(server.Router)))
 
 	// Create a context that listens for the interrupt signal from the OS
 	_, cancel := context.WithCancel(context.Background())
