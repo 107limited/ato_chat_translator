@@ -54,7 +54,7 @@ func main() {
 
 	// Penanganan CORS langsung di dalam main.go
 	router.HandleFunc("/index", func(w http.ResponseWriter, r *http.Request) {
-		w.Header().Set("Access-Control-Allow-Origin", "https://www.google.com")
+		w.Header().Set("Access-Control-Allow-Origin", "*")
 		w.Header().Set("Access-Control-Allow-Methods", "OPTIONS, GET, POST, PUT")
 		w.Header().Set("Access-Control-Allow-Headers", "Content-Type, X-CSRF-Token")
 
