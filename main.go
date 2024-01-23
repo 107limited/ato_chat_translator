@@ -56,19 +56,19 @@ func main() {
 
 	// start server listen
 	// with error handling
-	log.Fatal(http.ListenAndServe(":"+os.Getenv("PORT"), handlers.CORS(originsOk, headersOk, methodsOk)(server.Router)))
-
+	//log.Fatal(http.ListenAndServe(":"+os.Getenv("PORT"), handlers.CORS(originsOk, headersOk, methodsOk)(server.Router)))
 	// Create a context that listens for the interrupt signal from the OS
 	_, cancel := context.WithCancel(context.Background())
 	defer cancel()
-
+	
 	// Get the server port from the environment or .env file
 	port := os.Getenv("PORT_SERVER")
 	if port == "" {
 		port = "8080" // Port default jika tidak ditemukan
 	}
-
+	
 	// Start HTTP server
 	fmt.Printf("Server is running on port %s...\n", port)
-	log.Fatal(http.ListenAndServe(":"+port, server.Router))
+	//log.Fatal(http.ListenAndServe(":"+port, server.Router))
+	log.Fatal(http.ListenAndServe(":"+os.Getenv("PORT"), handlers.CORS(originsOk, headersOk, methodsOk)(server.Router)))
 }
