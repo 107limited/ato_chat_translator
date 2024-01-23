@@ -52,7 +52,11 @@ func main() {
 
 	// Create CORS handler with specific configurations
 	corsHandler := cors.New(cors.Options{
-		AllowedOrigins: []string{"http://localhost:5173"},
+		AllowedOrigins:   []string{"http://localhost:5173"},
+		AllowedMethods:   []string{"GET", "POST", "OPTIONS"},
+		AllowedHeaders:   []string{"Content-Type", "Authorization"},
+		AllowCredentials: true,
+		Debug:            true,
 	}).Handler
 
 	// Attach the CORS handler before your routes
