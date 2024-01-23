@@ -13,8 +13,6 @@ import (
 	"os"
 
 	_ "github.com/go-sql-driver/mysql"
-	
-	
 )
 
 func main() {
@@ -50,11 +48,8 @@ func main() {
 	// Create HTTP server
 	server := web.NewServer(conversationRepo, gpt4Translator)
 
-	// Create CORS middleware
-    corsMiddleware := CORSMiddleware(server.Router)
-
-    // Attach the CORS middleware before your routes
-    http.Handle("/", corsMiddleware)
+	// Attach the CORS middleware before your routes
+	server.Router.Use(web.CORSMiddleware)
 
 	// Create a context that listens for the interrupt signal from the OS
 	_, cancel := context.WithCancel(context.Background())
@@ -69,22 +64,4 @@ func main() {
 	// Start HTTP server
 	fmt.Printf("Server is running on port %s...\n", port)
 	log.Fatal(http.ListenAndServe(":"+port, server.Router))
-}
-
-// CORSMiddleware menangani kebijakan CORS
-func CORSMiddleware(next http.Handler) http.Handler {
-    return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-        w.Header().Set("Access-Control-Allow-Origin", "*")
-        w.Header().Set("Access-Control-Allow-Methods", "GET, POST, PUT, DELETE")
-        w.Header().Set("Access-Control-Allow-Headers", "Content-Type, Authorization")
-		
-
-        if r.Method == http.MethodOptions {
-            // Handling preflight request
-            w.WriteHeader(http.StatusOK)
-            return
-        }
-
-        next.ServeHTTP(w, r)
-    })
 }
