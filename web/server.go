@@ -25,6 +25,7 @@ type Server struct {
 // NewServer membuat instance baru dari Server
 func NewServer(conversationRepo chat.ConversationRepository, gpt4Translator translation.Translator) *Server {
 	router := mux.NewRouter()
+	
 	server := &Server{
 		Router:           router,
 		ConversationRepo: conversationRepo,
@@ -35,6 +36,7 @@ func NewServer(conversationRepo chat.ConversationRepository, gpt4Translator tran
 
 	return server
 }
+
 
 // SaveConversationHandler menangani permintaan untuk menyimpan percakapan
 func (s *Server) SaveConversationHandler(w http.ResponseWriter, r *http.Request) {
