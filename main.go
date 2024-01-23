@@ -13,6 +13,7 @@ import (
 	"os"
 
 	_ "github.com/go-sql-driver/mysql"
+	"github.com/gorilla/mux"
 )
 
 func main() {
@@ -48,8 +49,25 @@ func main() {
 	// Create HTTP server
 	server := web.NewServer(conversationRepo, gpt4Translator)
 
-	// Attach the CORS middleware before your routes
-	server.Router.Use(web.CORSMiddleware)
+	// Create a Gorilla mux router
+	router := mux.NewRouter()
+
+	// Penanganan CORS langsung di dalam main.go
+	router.HandleFunc("/index", func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Access-Control-Allow-Origin", "https://www.google.com")
+		w.Header().Set("Access-Control-Allow-Methods", "OPTIONS, GET, POST, PUT")
+		w.Header().Set("Access-Control-Allow-Headers", "Content-Type, X-CSRF-Token")
+
+		if r.Method == "OPTIONS" {
+			w.Write([]byte("allowed"))
+			return
+		}
+
+		w.Write([]byte("hello"))
+	})
+
+	// Terapkan router Gorilla mux ke server
+	server.Router = router
 
 	// Create a context that listens for the interrupt signal from the OS
 	_, cancel := context.WithCancel(context.Background())
