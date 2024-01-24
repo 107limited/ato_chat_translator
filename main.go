@@ -5,7 +5,6 @@ import (
 	"ato_chat/config"
 	"ato_chat/translation"
 	"ato_chat/web"
-	"context"
 	"database/sql"
 	"fmt"
 	"log"
@@ -13,6 +12,7 @@ import (
 	"os"
 
 	_ "github.com/go-sql-driver/mysql"
+	"github.com/gorilla/handlers"
 )
 
 func main() {
@@ -48,20 +48,18 @@ func main() {
 	// Create HTTP server
 	server := web.NewServer(conversationRepo, gpt4Translator)
 
-	// Attach the CORS middleware before your routes
-	server.Router.Use(web.CORSMiddleware)
-
-	// Create a context that listens for the interrupt signal from the OS
-	_, cancel := context.WithCancel(context.Background())
-	defer cancel()
-
+	
+	
+	// Start HTTP server
 	// Get the server port from the environment or .env file
 	port := os.Getenv("PORT_SERVER")
 	if port == "" {
 		port = "8080" // Port default jika tidak ditemukan
 	}
-
-	// Start HTTP server
 	fmt.Printf("Server is running on port %s...\n", port)
-	log.Fatal(http.ListenAndServe(":"+port, server.Router))
+	log.Fatal(http.ListenAndServe(":"+port,handlers.CORS(
+		handlers.AllowedOrigins([]string{"http://localhost:5173"}),
+		handlers.AllowedMethods([]string{"GET","POST","DELETE","PUT","OPTIONS"}),
+		handlers.AllowedHeaders([]string{"X-Requested-With","Content-Type","Authorization"}),
+	)(server.Router)))
 }
