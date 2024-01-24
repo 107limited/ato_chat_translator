@@ -56,12 +56,22 @@ func (cr *conversationRepository) GetAllConversations() ([]*models.Conversation,
 
 	var conversations []*models.Conversation
 	for rows.Next() {
+		var date sql.NullInt64
 		var conv models.Conversation
 		var get models.GetAllConversations
-		err := rows.Scan(&conv.ID, &conv.JapaneseText, &conv.EnglishText, &conv.UserID, &conv.CompanyID, &conv.ChatRoomID, &get.CreatedAt)
+		err := rows.Scan(&conv.ID, &conv.JapaneseText, &conv.EnglishText, &conv.UserID, &conv.CompanyID, &conv.ChatRoomID, &get.CreatedAt, &date)
+
 		if err != nil {
 			return nil, err
 		}
+
+		if date.Valid {
+			conv.Date = int(date.Int64)
+		} else {
+			// Jika 'date' adalah NULL, tampilkan 0
+			conv.Date = 0
+		}
+
 		conversations = append(conversations, &conv)
 	}
 
