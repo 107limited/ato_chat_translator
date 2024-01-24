@@ -58,7 +58,7 @@ func main() {
 	}
 	fmt.Printf("Server is running on port %s...\n", port)
 	log.Fatal(http.ListenAndServe(":"+port,handlers.CORS(
-		handlers.AllowedOrigins([]string{"http://localhost:5173"}),
+		handlers.AllowedOrigins([]string{"http://localhost:5173", "https://ato-ramdhani11.vercel.app"}),
 		handlers.AllowedMethods([]string{"GET","POST","DELETE","PUT","OPTIONS"}),
 		handlers.AllowedHeaders([]string{"X-Requested-With","Content-Type","Authorization"}),
 	)(server.Router)))
