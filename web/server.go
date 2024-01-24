@@ -47,7 +47,15 @@ func (s *Server) SaveConversationHandler(w http.ResponseWriter, r *http.Request)
 	}
 
 	// Konversi nilai "date" ke int64
-	dateInt64 := int64(translationRequest.Date)
+	var dateInt64 int64
+
+	// Konversi nilai "date" ke int64 setelah memvalidasi
+	if translationRequest.Date >= 0 {
+		dateInt64 = int64(translationRequest.Date)
+	} else {
+		http.Error(w, "Invalid 'date' value", http.StatusBadRequest)
+		return
+	}
 
 	// Validate required fields
 	if err := translationRequest.Validate(); err != nil {
@@ -79,9 +87,9 @@ func (s *Server) SaveConversationHandler(w http.ResponseWriter, r *http.Request)
 	// Create Conversation object
 	// var conversation *models.Conversation
 	t := models.Conversation{
+		Speaker:           translationRequest.Speaker,
 		JapaneseText:      japaneseText,
 		EnglishText:       englishText,
-		Speaker:           translationRequest.Speaker,
 		UserID:            translationRequest.UserID,
 		CompanyID:         translationRequest.CompanyID,
 		ChatRoomID:        translationRequest.ChatRoomID,
@@ -142,9 +150,27 @@ func (s *Server) GetAllConversationsHandler(w http.ResponseWriter, r *http.Reque
 		return
 	}
 
-	// Send successful response
+	// Mengkonversi data percakapan ke dalam format response yang diinginkan
+	var response []map[string]interface{}
+	for _, conv := range conversations {
+		conversationMap := map[string]interface{}{
+			"id":            conv.ID,
+			"japanese_text": conv.JapaneseText,
+			"english_text":  conv.EnglishText,
+			"speaker":       conv.Speaker,
+			"user_id":       conv.UserID,
+			"company_id":    conv.CompanyID,
+			"chat_room_id":  conv.ChatRoomID,
+			"created_at":    conv.CreatedAt,
+			"date":          conv.Date,
+		}
+		response = append(response, conversationMap)
+	}
+
+	// Mengirim response JSON
 	w.Header().Set("Content-Type", "application/json")
-	json.NewEncoder(w).Encode(conversations)
+	json.NewEncoder(w).Encode(response)
+
 }
 
 // TranslateMessageHandler menangani permintaan untuk menerjemahkan pesan
