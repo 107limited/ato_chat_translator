@@ -16,9 +16,8 @@ type Conversation struct {
 	OriginalMessage   string    `json:"original_message"`
 	TranslatedMessage string    `json:"translated_message"`
 	CreatedAt         time.Time `json:"created_at"`
-	Date              int       `json:"date"`
+	Date              int64 `json:"date"`
 }
-
 
 // TranslationRequest represents the JSON structure for translation request
 type TranslationRequest struct {
@@ -30,8 +29,9 @@ type TranslationRequest struct {
 	OriginalMessage   string    `json:"original_message"`
 	TranslatedMessage string    `json:"translated_message"`
 	CreatedAt         time.Time `json:"created_at"`
-	Date              int       `json:"date"`
+	Date              int64 `json:"date"`
 }
+
 // You can add a method to validate the struct
 func (req *TranslationRequest) Validate() error {
 	if req.UserID == "" || req.Speaker == "" || req.CompanyID == 0 || req.ChatRoomID == "" || req.OriginalMessage == "" || req.Date == 0 {
