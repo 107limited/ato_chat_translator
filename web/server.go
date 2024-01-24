@@ -47,6 +47,12 @@ func (s *Server) SaveConversationHandler(w http.ResponseWriter, r *http.Request)
 		return
 	}
 
+	// Validate required fields
+	if err := translationRequest.Validate(); err != nil {
+		http.Error(w, err.Error(), http.StatusBadRequest)
+		return
+	}
+
 	// Log request body
 	fmt.Printf("Received Request Body: %+v\n", translationRequest.OriginalMessage)
 
