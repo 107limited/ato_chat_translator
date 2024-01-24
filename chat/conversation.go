@@ -46,6 +46,7 @@ func (cr *conversationRepository) SaveConversation(conversation *models.Conversa
 }
 
 // GetAllConversations mengambil semua percakapan dari database
+// GetAllConversations mengambil semua percakapan dari database
 func (cr *conversationRepository) GetAllConversations() ([]*models.Conversation, error) {
 	query := "SELECT * FROM conversations ORDER BY created_at DESC"
 	rows, err := cr.db.Query(query)
@@ -56,20 +57,25 @@ func (cr *conversationRepository) GetAllConversations() ([]*models.Conversation,
 
 	var conversations []*models.Conversation
 	for rows.Next() {
-		var date sql.NullInt64
+		var dateInt64 sql.NullInt64 // Gunakan sql.NullInt64 untuk menangani NULL
 		var conv models.Conversation
 		var get models.GetAllConversations
-		err := rows.Scan(&conv.ID, &conv.JapaneseText, &conv.EnglishText, &conv.UserID, &conv.CompanyID, &conv.ChatRoomID, &get.CreatedAt, &date)
+		err := rows.Scan(&conv.ID, &conv.JapaneseText, &conv.EnglishText, &conv.UserID, &conv.CompanyID, &conv.ChatRoomID, &get.CreatedAt, &dateInt64)
 
 		if err != nil {
 			return nil, err
 		}
 
-		if date.Valid {
-			conv.Date = int(date.Int64)
-		} else {
-			// Jika 'date' adalah NULL, tampilkan 0
+		if dateInt64.Valid {
+			// Konversi nilai INT ke tipe data int64
+			conv.Date = dateInt64.Int64
+		} else if dateInt64.Int64 == 0 {
+			// Jika 'date' adalah 0, atur nilainya menjadi 0
 			conv.Date = 0
+		} else {
+			// Jika 'date' adalah NULL, atur nilainya sesuai dengan kebutuhan Anda
+			// Misalnya, atur nilainya menjadi -1 atau nilai default yang sesuai
+			conv.Date = -1 // Atur menjadi nilai yang sesuai (atau sesuai kebutuhan)
 		}
 
 		conversations = append(conversations, &conv)

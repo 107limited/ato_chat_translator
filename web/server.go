@@ -25,7 +25,7 @@ type Server struct {
 // NewServer membuat instance baru dari Server
 func NewServer(conversationRepo chat.ConversationRepository, gpt4Translator translation.Translator) *Server {
 	router := mux.NewRouter()
-	
+
 	server := &Server{
 		Router:           router,
 		ConversationRepo: conversationRepo,
@@ -37,7 +37,6 @@ func NewServer(conversationRepo chat.ConversationRepository, gpt4Translator tran
 	return server
 }
 
-
 // SaveConversationHandler menangani permintaan untuk menyimpan percakapan
 func (s *Server) SaveConversationHandler(w http.ResponseWriter, r *http.Request) {
 	// Parse JSON request body
@@ -46,6 +45,9 @@ func (s *Server) SaveConversationHandler(w http.ResponseWriter, r *http.Request)
 		http.Error(w, "Failed to parse request body", http.StatusBadRequest)
 		return
 	}
+
+	// Konversi nilai "date" ke int64
+	dateInt64 := int64(translationRequest.Date)
 
 	// Validate required fields
 	if err := translationRequest.Validate(); err != nil {
@@ -86,6 +88,7 @@ func (s *Server) SaveConversationHandler(w http.ResponseWriter, r *http.Request)
 		OriginalMessage:   translationRequest.OriginalMessage,
 		TranslatedMessage: translatedMessage,
 		CreatedAt:         time.Now(),
+		Date:              dateInt64,
 	}
 	// conversation = &t
 	// Save conversation to repository
