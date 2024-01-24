@@ -26,8 +26,8 @@ type conversationRepository struct {
 
 // SaveConversation menyimpan percakapan ke database
 func (cr *conversationRepository) SaveConversation(conversation *models.Conversation) error {
-	query := "INSERT INTO conversations (japanese_text, english_text, user_id, company_id, chat_room_id, created_at) VALUES (?, ?, ?, ?, ?, ?)"
-	result, err := cr.db.Exec(query, conversation.JapaneseText, conversation.EnglishText, conversation.UserID, conversation.CompanyID, conversation.ChatRoomID, conversation.CreatedAt)
+	query := "INSERT INTO conversations (japanese_text, english_text, user_id, company_id, chat_room_id, created_at, date) VALUES (?, ?, ?, ?, ?, ?, ?)"
+	result, err := cr.db.Exec(query, conversation.JapaneseText, conversation.EnglishText, conversation.UserID, conversation.CompanyID, conversation.ChatRoomID, conversation.CreatedAt, conversation.Date)
 	if err != nil {
 		// Handle error saat penyimpanan ke dalam database
 		return fmt.Errorf("error executing query: %v", err)
