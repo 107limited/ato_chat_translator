@@ -26,8 +26,8 @@ type conversationRepository struct {
 
 // SaveConversation menyimpan percakapan ke database
 func (cr *conversationRepository) SaveConversation(conversation *models.Conversation) error {
-	query := "INSERT INTO conversations (japanese_text, english_text, user_id, company_id, chat_room_id, created_at, date) VALUES (?, ?, ?, ?, ?, ?, ?)"
-	result, err := cr.db.Exec(query, conversation.JapaneseText, conversation.EnglishText, conversation.UserID, conversation.CompanyID, conversation.ChatRoomID, conversation.CreatedAt, conversation.Date)
+	query := "INSERT INTO conversations (japanese_text, english_text, user_id, speaker, company_id, chat_room_id, created_at, date) VALUES (?, ?, ?, ?, ?, ?, ?, ?)"
+	result, err := cr.db.Exec(query, conversation.JapaneseText, conversation.EnglishText, conversation.UserID, conversation.Speaker, conversation.CompanyID, conversation.ChatRoomID, conversation.CreatedAt, conversation.Date)
 	if err != nil {
 		// Handle error saat penyimpanan ke dalam database
 		return fmt.Errorf("error executing query: %v", err)
@@ -45,10 +45,8 @@ func (cr *conversationRepository) SaveConversation(conversation *models.Conversa
 	return nil
 }
 
-// GetAllConversations mengambil semua percakapan dari database
-// GetAllConversations mengambil semua percakapan dari database
 func (cr *conversationRepository) GetAllConversations() ([]*models.Conversation, error) {
-	query := "SELECT * FROM conversations ORDER BY created_at DESC"
+	query := "SELECT * FROM conversations ORDER BY created_at ASC"
 	rows, err := cr.db.Query(query)
 	if err != nil {
 		return nil, err
@@ -57,25 +55,24 @@ func (cr *conversationRepository) GetAllConversations() ([]*models.Conversation,
 
 	var conversations []*models.Conversation
 	for rows.Next() {
-		var dateInt64 sql.NullInt64 // Gunakan sql.NullInt64 untuk menangani NULL
+		
+		var dateInt64 sql.NullInt64
 		var conv models.Conversation
 		var get models.GetAllConversations
-		err := rows.Scan(&conv.ID, &conv.JapaneseText, &conv.EnglishText, &conv.UserID, &conv.CompanyID, &conv.ChatRoomID, &get.CreatedAt, &dateInt64)
+		err := rows.Scan(&conv.ID, &conv.JapaneseText, &conv.EnglishText, &conv.UserID, &conv.CompanyID, &conv.ChatRoomID, &get.CreatedAt, &dateInt64, &conv.Speaker)
 
 		if err != nil {
 			return nil, err
 		}
 
+	
+
 		if dateInt64.Valid {
-			// Konversi nilai INT ke tipe data int64
 			conv.Date = dateInt64.Int64
 		} else if dateInt64.Int64 == 0 {
-			// Jika 'date' adalah 0, atur nilainya menjadi 0
 			conv.Date = 0
 		} else {
-			// Jika 'date' adalah NULL, atur nilainya sesuai dengan kebutuhan Anda
-			// Misalnya, atur nilainya menjadi -1 atau nilai default yang sesuai
-			conv.Date = -1 // Atur menjadi nilai yang sesuai (atau sesuai kebutuhan)
+			conv.Date = -1
 		}
 
 		conversations = append(conversations, &conv)
