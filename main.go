@@ -7,13 +7,26 @@ import (
 	"ato_chat/web"
 	"database/sql"
 	"fmt"
-	"log"
+
 	"net/http"
 	"os"
 
 	_ "github.com/go-sql-driver/mysql"
 	"github.com/gorilla/handlers"
+	log "github.com/sirupsen/logrus"
 )
+
+func init() {
+    // Konfigurasi logrus
+    log.SetFormatter(&log.TextFormatter{
+        ForceColors:   true,       // Mengaktifkan warna
+        FullTimestamp: true,       // Menampilkan timestamp lengkap
+    })
+
+    // Jika Anda ingin level log ditampilkan dalam huruf kapital
+    log.SetLevel(log.InfoLevel)
+    log.SetReportCaller(true)    // Jika Anda ingin melihat di mana log dipanggil
+}
 
 func main() {
 	// Load database configuration from .env
@@ -50,13 +63,18 @@ func main() {
 
 	
 	
-	// Start HTTP server
-	// Get the server port from the environment or .env file
-	port := os.Getenv("PORT_SERVER")
-	if port == "" {
-		port = "8080" // Port default jika tidak ditemukan
-	}
-	fmt.Printf("Server is running on port %s...\n", port)
+	// Set log format as text formatter with full timestamp
+    log.SetFormatter(&log.TextFormatter{
+        FullTimestamp: true,
+    })
+
+    // Get the server port from the environment or .env file
+    port := os.Getenv("PORT_SERVER")
+    if port == "" {
+        port = "8080" // Port default jika tidak ditemukan
+    }
+    log.Infof("Server is running on port %s...", port)
+
 	log.Fatal(http.ListenAndServe(":"+port,handlers.CORS(
 		handlers.AllowedOrigins([]string{"http://localhost:5173", "https://ato-puce.vercel.app"}),
 		handlers.AllowedMethods([]string{"GET","POST","DELETE","PUT","OPTIONS"}),
