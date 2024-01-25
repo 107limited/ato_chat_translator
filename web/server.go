@@ -7,6 +7,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"net/http"
+	"strings"
 
 	"time"
 
@@ -48,33 +49,33 @@ func (s *Server) SaveConversationHandler(w http.ResponseWriter, r *http.Request)
 	}
 
 	// Konversi nilai "date" ke int64
-    var dateInt64 int64
-    if translationRequest.Date >= 0 {
-        dateInt64 = int64(translationRequest.Date)
-    } else {
-        log.Warn("Invalid 'date' value")
-        http.Error(w, "Invalid 'date' value", http.StatusBadRequest)
-        return
-    }
+	var dateInt64 int64
+	if translationRequest.Date >= 0 {
+		dateInt64 = int64(translationRequest.Date)
+	} else {
+		log.Warn("Invalid 'date' value")
+		http.Error(w, "Invalid 'date' value", http.StatusBadRequest)
+		return
+	}
 
 	// Validate required fields
-    if err := translationRequest.Validate(); err != nil {
-        log.WithError(err).Warn("Validation failed for translation request")
-        http.Error(w, err.Error(), http.StatusBadRequest)
-        return
-    }
+	if err := translationRequest.Validate(); err != nil {
+		log.WithError(err).Warn("Validation failed for translation request")
+		http.Error(w, err.Error(), http.StatusBadRequest)
+		return
+	}
 
-    // Translate original message
-    translatedMessage, err := s.GPT4Translator.TranslateMessage(translationRequest.OriginalMessage)
-    if err != nil {
-        log.WithError(err).Error("Failed to translate message")
-        http.Error(w, fmt.Sprintf("Failed to translate message: %v", err), http.StatusInternalServerError)
-        return
-    }
+	// Translate original message
+	translatedMessage, err := s.GPT4Translator.TranslateMessage(translationRequest.OriginalMessage)
+	if err != nil {
+		log.WithError(err).Error("Failed to translate message")
+		http.Error(w, fmt.Sprintf("Failed to translate message: %v", err), http.StatusInternalServerError)
+		return
+	}
 
 	// Tentukan bahasa berdasarkan speaker
 	var japaneseText, englishText string
-	if translationRequest.Speaker == "Ato" {
+	if strings.EqualFold(translationRequest.Speaker, "ato") {
 		japaneseText = translationRequest.OriginalMessage
 		englishText = translatedMessage
 	} else {
@@ -97,14 +98,14 @@ func (s *Server) SaveConversationHandler(w http.ResponseWriter, r *http.Request)
 	}
 
 	// Save conversation to repository
-    err = s.ConversationRepo.SaveConversation(&t)
-    if err != nil {
-        log.WithError(err).Error("Failed to save conversation")
-        http.Error(w, fmt.Sprintf("Failed to save conversation: %v", err), http.StatusInternalServerError)
-        return
-    }
+	err = s.ConversationRepo.SaveConversation(&t)
+	if err != nil {
+		log.WithError(err).Error("Failed to save conversation")
+		http.Error(w, fmt.Sprintf("Failed to save conversation: %v", err), http.StatusInternalServerError)
+		return
+	}
 
-    log.Info("Conversation saved successfully")
+	log.Info("Conversation saved successfully")
 
 	// Create TranslationResponse
 	translationResponse := models.TranslationResponse{
