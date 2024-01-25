@@ -6,13 +6,13 @@ import (
 	"ato_chat/translation"
 	"encoding/json"
 	"fmt"
-	"log"
 	"net/http"
 
 	"time"
 
 	"github.com/gorilla/mux"
-	"golang.org/x/text/language"
+	log "github.com/sirupsen/logrus"
+	//"golang.org/x/text/language"
 )
 
 // Server adalah struktur data untuk server web
@@ -42,50 +42,47 @@ func (s *Server) SaveConversationHandler(w http.ResponseWriter, r *http.Request)
 	// Parse JSON request body
 	var translationRequest models.TranslationRequest
 	if err := json.NewDecoder(r.Body).Decode(&translationRequest); err != nil {
+		log.WithError(err).Error("Failed to parse request body")
 		http.Error(w, "Failed to parse request body", http.StatusBadRequest)
 		return
 	}
 
 	// Konversi nilai "date" ke int64
-	var dateInt64 int64
-
-	// Konversi nilai "date" ke int64 setelah memvalidasi
-	if translationRequest.Date >= 0 {
-		dateInt64 = int64(translationRequest.Date)
-	} else {
-		http.Error(w, "Invalid 'date' value", http.StatusBadRequest)
-		return
-	}
+    var dateInt64 int64
+    if translationRequest.Date >= 0 {
+        dateInt64 = int64(translationRequest.Date)
+    } else {
+        log.Warn("Invalid 'date' value")
+        http.Error(w, "Invalid 'date' value", http.StatusBadRequest)
+        return
+    }
 
 	// Validate required fields
-	if err := translationRequest.Validate(); err != nil {
-		http.Error(w, err.Error(), http.StatusBadRequest)
-		return
-	}
+    if err := translationRequest.Validate(); err != nil {
+        log.WithError(err).Warn("Validation failed for translation request")
+        http.Error(w, err.Error(), http.StatusBadRequest)
+        return
+    }
 
-	// Log request body
-	fmt.Printf("Received Request Body: %+v\n", translationRequest.OriginalMessage)
+    // Translate original message
+    translatedMessage, err := s.GPT4Translator.TranslateMessage(translationRequest.OriginalMessage)
+    if err != nil {
+        log.WithError(err).Error("Failed to translate message")
+        http.Error(w, fmt.Sprintf("Failed to translate message: %v", err), http.StatusInternalServerError)
+        return
+    }
 
-	// Translate original message
-	translatedMessage, err := s.GPT4Translator.TranslateMessage(translationRequest.OriginalMessage)
-	if err != nil {
-		errorMessage := fmt.Sprintf("Failed to translate message: %v", err)
-		http.Error(w, errorMessage, http.StatusInternalServerError)
-		return
-	}
-
-	// Determine language of original message
+	// Tentukan bahasa berdasarkan speaker
 	var japaneseText, englishText string
-	if s.isJapanese(translationRequest.OriginalMessage) {
+	if translationRequest.Speaker == "Ato" {
 		japaneseText = translationRequest.OriginalMessage
 		englishText = translatedMessage
 	} else {
-		japaneseText = translatedMessage
 		englishText = translationRequest.OriginalMessage
+		japaneseText = translatedMessage
 	}
 
 	// Create Conversation object
-	// var conversation *models.Conversation
 	t := models.Conversation{
 		Speaker:           translationRequest.Speaker,
 		JapaneseText:      japaneseText,
@@ -98,14 +95,16 @@ func (s *Server) SaveConversationHandler(w http.ResponseWriter, r *http.Request)
 		CreatedAt:         time.Now(),
 		Date:              dateInt64,
 	}
-	// conversation = &t
+
 	// Save conversation to repository
-	err = s.ConversationRepo.SaveConversation(&t)
-	if err != nil {
-		errorMessage := fmt.Sprintf("Failed to save conversation: %v", err)
-		http.Error(w, errorMessage, http.StatusInternalServerError)
-		return
-	}
+    err = s.ConversationRepo.SaveConversation(&t)
+    if err != nil {
+        log.WithError(err).Error("Failed to save conversation")
+        http.Error(w, fmt.Sprintf("Failed to save conversation: %v", err), http.StatusInternalServerError)
+        return
+    }
+
+    log.Info("Conversation saved successfully")
 
 	// Create TranslationResponse
 	translationResponse := models.TranslationResponse{
@@ -129,17 +128,17 @@ func (s *Server) SaveConversationHandler(w http.ResponseWriter, r *http.Request)
 }
 
 // isJapanese checks if the given text is in Japanese
-func (s *Server) isJapanese(text string) bool {
-	// Identifikasi bahasa menggunakan golang.org/x/text/language
-	tag, err := language.Parse(text)
-	if err != nil {
-		// Handle error jika parsing gagal
-		return false
-	}
+// func (s *Server) isJapanese(text string) bool {
+// 	// Identifikasi bahasa menggunakan golang.org/x/text/language
+// 	tag, err := language.Parse(text)
+// 	if err != nil {
+// 		// Handle error jika parsing gagal
+// 		return false
+// 	}
 
-	// Bandingkan dengan tag bahasa Jepang
-	return tag == language.Japanese
-}
+// 	// Bandingkan dengan tag bahasa Jepang
+// 	return tag == language.Japanese
+// }
 
 // GetAllConversationsHandler menangani permintaan untuk mendapatkan semua percakapan
 func (s *Server) GetAllConversationsHandler(w http.ResponseWriter, r *http.Request) {
