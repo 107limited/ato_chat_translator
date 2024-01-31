@@ -17,35 +17,41 @@ import (
 )
 
 func init() {
-    // Konfigurasi logrus
-    log.SetFormatter(&log.TextFormatter{
-        ForceColors:   true,       // Mengaktifkan warna
-        FullTimestamp: true,       // Menampilkan timestamp lengkap
-    })
+	// Konfigurasi logrus
+	log.SetFormatter(&log.TextFormatter{
+		ForceColors:   true, // Mengaktifkan warna
+		FullTimestamp: true, // Menampilkan timestamp lengkap
+	})
 
-    // Jika Anda ingin level log ditampilkan dalam huruf kapital
-    log.SetLevel(log.InfoLevel)
-    log.SetReportCaller(true)    // Jika Anda ingin melihat di mana log dipanggil
+	// Jika Anda ingin level log ditampilkan dalam huruf kapital
+	log.SetLevel(log.InfoLevel)
+	log.SetReportCaller(true) // Jika Anda ingin melihat di mana log dipanggil
 }
 
 func main() {
 	// Load database configuration from .env
 	dbConfig := config.LoadDBConfig()
+	log.Printf("Database Config: %+v\n", dbConfig)
 
-	// Get database connection string
+	// Get the database connection string
 	dbConnectionString := dbConfig.GetDBConnectionString()
 
 	// Attempt to open a connection to the database
 	db, err := sql.Open("mysql", dbConnectionString)
 	if err != nil {
-		log.Fatal(err)
+		log.Fatalf("Error opening database: %v\n", err)
 	}
 	defer db.Close()
+
+	err = db.Ping()
+	if err != nil {
+		log.Fatalf("Error connecting to database: %v\n", err)
+	}
 
 	// Attempt to ping the database to check the connection
 	err = db.Ping()
 	if err != nil {
-		log.Fatal(err)
+		log.Fatalf("Error connecting to database: %v\n", err)
 	}
 	fmt.Println("Database connection successful!")
 
@@ -59,25 +65,23 @@ func main() {
 	conversationRepo := chat.ConversationRepository(gpt4Translator)
 
 	// Create HTTP server
-	server := web.NewServer(conversationRepo, gpt4Translator)
+	server := web.NewServer(db, conversationRepo, gpt4Translator)
 
-	
-	
 	// Set log format as text formatter with full timestamp
-    log.SetFormatter(&log.TextFormatter{
-        FullTimestamp: true,
-    })
+	log.SetFormatter(&log.TextFormatter{
+		FullTimestamp: true,
+	})
 
-    // Get the server port from the environment or .env file
-    port := os.Getenv("PORT_SERVER")
-    if port == "" {
-        port = "8080" // Port default jika tidak ditemukan
-    }
-    log.Infof("Server is running on port %s...", port)
+	// Get the server port from the environment or .env file
+	port := os.Getenv("PORT_SERVER")
+	if port == "" {
+		port = "8080" // Port default jika tidak ditemukan
+	}
+	log.Infof("Server is running on port %s...", port)
 
-	log.Fatal(http.ListenAndServe(":"+port,handlers.CORS(
+	log.Fatal(http.ListenAndServe(":"+port, handlers.CORS(
 		handlers.AllowedOrigins([]string{"http://localhost:5173", "https://ato-puce.vercel.app"}),
-		handlers.AllowedMethods([]string{"GET","POST","DELETE","PUT","OPTIONS"}),
-		handlers.AllowedHeaders([]string{"X-Requested-With","Content-Type","Authorization"}),
+		handlers.AllowedMethods([]string{"GET", "POST", "DELETE", "PUT", "OPTIONS"}),
+		handlers.AllowedHeaders([]string{"X-Requested-With", "Content-Type", "Authorization"}),
 	)(server.Router)))
 }
