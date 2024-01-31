@@ -13,14 +13,24 @@ Ato Chat App is a conversation application that leverages the GPT-4 model to tra
    cd ato-chat-app
    ```
    
+
 1. Install the required dependencies:
 
 ```bash
-    go mod init
+    go mod tidy
 ```
 
 
 2. Create a .env file and configure the necessary environment variables, such as the API Key for OpenAI.
+```bash
+DB_USERNAME=root
+DB_PASSWORD=root
+DB_HOST=localhost
+DB_PORT=3306
+DB_NAME=ato_chat
+OPENAI_API_KEY=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
+PORT_SERVER=8083
+ ```
 
 ## Usage
 Run the application:
@@ -90,7 +100,7 @@ Translate a message.
 {
   "conversations": [
     {
-      "speaker": "107",
+      "speaker": "ATO",
       "original_message": "あなたはどこに住んでいますか？",
       "translated_message": "Where do you live?"
     }

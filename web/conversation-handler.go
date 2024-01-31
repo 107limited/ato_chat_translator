@@ -2,8 +2,10 @@ package web
 
 import (
 	"ato_chat/chat"
+	"ato_chat/jwt"
 	"ato_chat/models"
 	"ato_chat/translation"
+	"database/sql"
 	"encoding/json"
 	"fmt"
 	"net/http"
@@ -18,16 +20,18 @@ import (
 
 // Server adalah struktur data untuk server web
 type Server struct {
+	DB               *sql.DB
 	Router           *mux.Router
 	ConversationRepo chat.ConversationRepository
 	GPT4Translator   translation.Translator
 }
 
 // NewServer membuat instance baru dari Server
-func NewServer(conversationRepo chat.ConversationRepository, gpt4Translator translation.Translator) *Server {
+func NewServer(db *sql.DB, conversationRepo chat.ConversationRepository, gpt4Translator translation.Translator) *Server {
 	router := mux.NewRouter()
 
 	server := &Server{
+		DB:               db,
 		Router:           router,
 		ConversationRepo: conversationRepo,
 		GPT4Translator:   gpt4Translator,
@@ -40,6 +44,33 @@ func NewServer(conversationRepo chat.ConversationRepository, gpt4Translator tran
 
 // SaveConversationHandler menangani permintaan untuk menyimpan percakapan
 func (s *Server) SaveConversationHandler(w http.ResponseWriter, r *http.Request) {
+	// Ekstrak token dari header Authorization
+	authHeader := r.Header.Get("Authorization")
+	if authHeader == "" {
+		http.Error(w, "Authorization header is required", http.StatusUnauthorized)
+		return
+	}
+
+	// Biasanya, token dikirim sebagai "Bearer <token>", jadi kita perlu memisahkan kata "Bearer"
+	splitToken := strings.Split(authHeader, "Bearer ")
+	if len(splitToken) != 2 {
+		http.Error(w, "Invalid Authorization token format", http.StatusUnauthorized)
+		return
+	}
+	tokenString := splitToken[1]
+
+	// Validasi token dan ekstrak email dan companyID
+    email, companyID, err := jwt.ValidateTokenOrSession(tokenString)
+    if err != nil {
+        http.Error(w, "Invalid token: "+err.Error(), http.StatusUnauthorized)
+        return
+    }
+
+    // Jika email atau companyID digunakan untuk mengautentikasi percakapan
+    // atau untuk menentukan izin pengguna, masukkan logika disini.
+    // Contoh: mencatat informasi pengguna yang menyimpan percakapan
+    log.Infof("User %s from company %d is saving a conversation", email, companyID)
+
 	// Parse JSON request body
 	var translationRequest models.TranslationRequest
 	if err := json.NewDecoder(r.Body).Decode(&translationRequest); err != nil {
@@ -208,14 +239,6 @@ func (s *Server) TranslateMessageHandler(w http.ResponseWriter, r *http.Request)
 	w.Header().Set("Content-Type", "application/json")
 	json.NewEncoder(w).Encode(translationResponse)
 
-}
-
-// initializeRoutes mengatur rute-rute untuk server
-func (s *Server) initializeRoutes() {
-	// Contoh rute
-	s.Router.HandleFunc("/api/conversations", s.SaveConversationHandler).Methods("POST")
-	s.Router.HandleFunc("/api/conversations", s.GetAllConversationsHandler).Methods("GET")
-	s.Router.HandleFunc("/api/translate", s.TranslateMessageHandler).Methods("POST")
 }
 
 // Start menjalankan server web

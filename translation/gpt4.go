@@ -54,6 +54,14 @@ func NewGPT4Client(apiKey, model string, db chat.ConversationRepository) *GPT4Cl
 	}
 }
 
+type APIResponse struct {
+	Choices []struct {
+		Message struct {
+			Content string `json:"content"`
+		} `json:"message"`
+	} `json:"choices"`
+}
+
 // TranslateMessage menerjemahkan pesan menggunakan API GPT-4
 func (c *GPT4Client) TranslateMessage(prompt string) (string, error) {
 	url := "https://api.openai.com/v1/chat/completions"
@@ -86,6 +94,14 @@ func (c *GPT4Client) TranslateMessage(prompt string) (string, error) {
 		return "", err
 	}
 	defer resp.Body.Close()
+
+	// Penanganan status code error
+    if resp.StatusCode != http.StatusOK {
+        if resp.StatusCode == http.StatusUnauthorized {
+            return "", fmt.Errorf("API key expired or invalid")
+        }
+        return "", fmt.Errorf("received non-ok status code: %d", resp.StatusCode)
+    }
 
 	// Membaca respons
 	var bodyBuffer bytes.Buffer
