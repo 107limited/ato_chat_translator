@@ -112,3 +112,15 @@ func AuthenticateUser(email, password string) (*models.User, error) {
 
 	return &user, nil
 }
+
+// GetUserIDByEmail mengambil ID pengguna dari database berdasarkan email.
+func GetUserIDByEmail(db *sql.DB, email string) (int, error) {
+    var id int
+    query := `SELECT id FROM users WHERE email = ?`
+    err := db.QueryRow(query, email).Scan(&id)
+    if err != nil {
+        return 0, err
+    }
+    return id, nil
+}
+

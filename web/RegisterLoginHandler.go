@@ -107,6 +107,13 @@ func (s *Server) PersonalDataHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	// Dapatkan ID pengguna berdasarkan email dari token
+	userId, err := dbAto.GetUserIDByEmail(s.DB, email)
+	if err != nil {
+		http.Error(w, "Failed to get user ID: "+err.Error(), http.StatusInternalServerError)
+		return
+	}
+
 	// Gunakan email dan companyId sesuai kebutuhan
 
 	// Validasi data personal data
@@ -155,9 +162,10 @@ func (s *Server) PersonalDataHandler(w http.ResponseWriter, r *http.Request) {
 		"message": "User logged in and updated Personal Data successfully",
 		"token":   token,
 		"account": map[string]interface{}{
-			"name":        personalData.Name,   // Nama dari data personal
-			"roleID":      personalData.RoleID, // RoleID dari data personal
-			"companyName": companyName,         // Nama perusahaan dari company_id
+			"id":           userId,              // ID pengguna yang berhasil diupdate
+			"name":         personalData.Name,   // Nama dari data personal
+			"role_id":      personalData.RoleID, // RoleID dari data personal
+			"company_name": companyName,         // Nama perusahaan dari company_id
 		},
 	}
 
@@ -200,8 +208,8 @@ func (s *Server) LoginUserHandler(w http.ResponseWriter, r *http.Request) {
 	response := map[string]interface{}{
 		"token": token,
 		"account": map[string]interface{}{
-			"email":       user.Email,  // Email dari akun yang berhasil login
-			"name":        name,        // Nama dari akun yang berhasil login
+			"email":        user.Email,  // Email dari akun yang berhasil login
+			"name":         name,        // Nama dari akun yang berhasil login
 			"company_name": companyName, // Nama perusahaan dari akun yang berhasil login
 			"role_name":    roleName,    // Nama role dari akun yang berhasil login
 		},
@@ -216,11 +224,15 @@ func (s *Server) LoginUserHandler(w http.ResponseWriter, r *http.Request) {
 func (s *Server) GetAllUsersHandler(w http.ResponseWriter, r *http.Request) {
 	users, err := dbAto.GetAllUsers(s.DB)
 	if err != nil {
+		log.Printf("Failed to get users: %v", err)
 		http.Error(w, "Failed to get users", http.StatusInternalServerError)
 		return
 	}
 
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(http.StatusOK)
-	json.NewEncoder(w).Encode(users)
+	if err := json.NewEncoder(w).Encode(users); err != nil {
+		log.Printf("Failed to encode users to JSON: %v", err)
+		http.Error(w, "Failed to process data", http.StatusInternalServerError)
+	}
 }
