@@ -58,5 +58,6 @@ type TranslationResponse struct {
 		Speaker           string `json:"speaker"`
 		OriginalMessage   string `json:"original_message"`
 		TranslatedMessage string `json:"translated_message"`
+		CompanyName       string `json:"company_name"` // Field baru
 	} `json:"conversations"`
 }
