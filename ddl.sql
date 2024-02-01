@@ -19,11 +19,15 @@ CREATE TABLE users (
     FOREIGN KEY (role_id) REFERENCES roles(id)
 );
 
-
 CREATE TABLE chat_room (
     id INT PRIMARY KEY AUTO_INCREMENT,
-    chat_room_name VARCHAR(255) NOT NULL
+    user1_id INT,
+    user2_id INT,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY (user1_id) REFERENCES users(id),
+    FOREIGN KEY (user2_id) REFERENCES users(id)
 );
+
 
 
 CREATE TABLE conversations (
