@@ -19,24 +19,24 @@ import (
 )
 
 type Server struct {
-    DB               *sql.DB
-    Router           *mux.Router
-    ConversationRepo chat.ConversationRepository
-    GPT4Translator   translation.Translator
-    ChatRoomHandler  *ChatRoomHandler
+	DB               *sql.DB
+	Router           *mux.Router
+	ConversationRepo chat.ConversationRepository
+	GPT4Translator   translation.Translator
+	ChatRoomHandler  *ChatRoomHandler
 }
 
 // Konstruktor untuk membuat instance baru dari Server dengan ChatRoomHandler
 func NewServer(db *sql.DB, conversationRepo chat.ConversationRepository, gpt4Translator translation.Translator, chatRoomHandler *ChatRoomHandler) *Server {
-    server := &Server{
-        DB:               db,
-        Router:           mux.NewRouter(),
-        ConversationRepo: conversationRepo,
-        GPT4Translator:   gpt4Translator,
-        ChatRoomHandler:  chatRoomHandler,
-    }
-    server.initializeRoutes() // Inisialisasi rute setelah semua handler siap
-    return server
+	server := &Server{
+		DB:               db,
+		Router:           mux.NewRouter(),
+		ConversationRepo: conversationRepo,
+		GPT4Translator:   gpt4Translator,
+		ChatRoomHandler:  chatRoomHandler,
+	}
+	server.initializeRoutes() // Inisialisasi rute setelah semua handler siap
+	return server
 }
 
 // SaveConversationHandler menangani permintaan untuk menyimpan percakapan
@@ -57,16 +57,16 @@ func (s *Server) SaveConversationHandler(w http.ResponseWriter, r *http.Request)
 	tokenString := splitToken[1]
 
 	// Validasi token dan ekstrak email dan companyID
-    email, companyID, err := jwt.ValidateTokenOrSession(tokenString)
-    if err != nil {
-        http.Error(w, "Invalid token: "+err.Error(), http.StatusUnauthorized)
-        return
-    }
+	email, companyID, err := jwt.ValidateTokenOrSession(tokenString)
+	if err != nil {
+		http.Error(w, "Invalid token: "+err.Error(), http.StatusUnauthorized)
+		return
+	}
 
-    // Jika email atau companyID digunakan untuk mengautentikasi percakapan
-    // atau untuk menentukan izin pengguna, masukkan logika disini.
-    // Contoh: mencatat informasi pengguna yang menyimpan percakapan
-    log.Infof("User %s from company %d is saving a conversation", email, companyID)
+	// Jika email atau companyID digunakan untuk mengautentikasi percakapan
+	// atau untuk menentukan izin pengguna, masukkan logika disini.
+	// Contoh: mencatat informasi pengguna yang menyimpan percakapan
+	log.Infof("User %s from company %d is saving a conversation", email, companyID)
 
 	// Parse JSON request body
 	var translationRequest models.TranslationRequest
@@ -101,6 +101,20 @@ func (s *Server) SaveConversationHandler(w http.ResponseWriter, r *http.Request)
 		return
 	}
 
+	// Ambil nama pengguna dari database berdasarkan user_id
+	var userName string
+	err = s.DB.QueryRow("SELECT name FROM users WHERE id = ?", translationRequest.UserID).Scan(&userName)
+	if err != nil {
+		log.WithError(err).Error("Failed to retrieve user name")
+		http.Error(w, "Failed to retrieve user name", http.StatusInternalServerError)
+		return
+	}
+
+	// Jika tidak ada nama, gunakan default value atau handle sesuai kebutuhan
+	if userName == "" {
+		userName = "Unknown Speaker" // atau handle lainnya
+	}
+
 	// Tentukan bahasa berdasarkan speaker
 	var japaneseText, englishText string
 	if strings.EqualFold(translationRequest.Speaker, "ato") {
@@ -112,21 +126,21 @@ func (s *Server) SaveConversationHandler(w http.ResponseWriter, r *http.Request)
 	}
 
 	var chatRoomID int
-    if translationRequest.ChatRoomID == 0 {
-        // Jika ChatRoomID tidak disediakan, coba tentukan atau buat chat room baru
-        chatRoomID, err = s.determineOrCreateChatRoom(translationRequest.UserID, translationRequest.OtherUserID) // otherUserID harus ditentukan
-        if err != nil {
-            http.Error(w, "Failed to determine or create chat room", http.StatusInternalServerError)
-            return
-        }
-    } else {
-        chatRoomID = translationRequest.ChatRoomID
-        // Opsi: Validasi apakah chat room yang diberikan valid
-    }
+	if translationRequest.ChatRoomID == 0 {
+		// Jika ChatRoomID tidak disediakan, coba tentukan atau buat chat room baru
+		chatRoomID, err = s.determineOrCreateChatRoom(translationRequest.UserID, translationRequest.OtherUserID) // otherUserID harus ditentukan
+		if err != nil {
+			http.Error(w, "Failed to determine or create chat room", http.StatusInternalServerError)
+			return
+		}
+	} else {
+		chatRoomID = translationRequest.ChatRoomID
+		// Opsi: Validasi apakah chat room yang diberikan valid
+	}
 
-	// Create Conversation object
+	// Create Conversation object dengan speaker dari database
 	t := models.Conversation{
-		Speaker:           translationRequest.Speaker,
+		Speaker:           userName, // Gunakan userName sebagai Speaker
 		JapaneseText:      japaneseText,
 		EnglishText:       englishText,
 		UserID:            translationRequest.UserID,
@@ -156,7 +170,7 @@ func (s *Server) SaveConversationHandler(w http.ResponseWriter, r *http.Request)
 			TranslatedMessage string `json:"translated_message"`
 		}{
 			{
-				Speaker:           translationRequest.Speaker,
+				Speaker:           userName, // Gunakan userName di sini juga
 				OriginalMessage:   translationRequest.OriginalMessage,
 				TranslatedMessage: translatedMessage,
 			},
@@ -170,36 +184,35 @@ func (s *Server) SaveConversationHandler(w http.ResponseWriter, r *http.Request)
 }
 
 func (s *Server) determineOrCreateChatRoom(user1ID, user2ID int) (int, error) {
-    var chatRoomID int
+	var chatRoomID int
 
-    // Cek apakah chat room sudah ada
-    query := `SELECT id FROM chat_room WHERE (user1_id = ? AND user2ID = ?) OR (user1_id = ? AND user2ID = ?)`
-    err := s.DB.QueryRow(query, user1ID, user2ID, user2ID, user1ID).Scan(&chatRoomID)
-    
-    if err == sql.ErrNoRows {
-        // Chat room tidak ada, buat chat room baru
-        insertQuery := `INSERT INTO chat_room (user1_id, user2_id) VALUES (?, ?)`
-        result, err := s.DB.Exec(insertQuery, user1ID, user2ID)
-        if err != nil {
-            return 0, err
-        }
+	// Cek apakah chat room sudah ada
+	query := `SELECT id FROM chat_room WHERE (user1_id = ? AND user2ID = ?) OR (user1_id = ? AND user2ID = ?)`
+	err := s.DB.QueryRow(query, user1ID, user2ID, user2ID, user1ID).Scan(&chatRoomID)
 
-        // Dapatkan ID chat room yang baru dibuat
-        newChatRoomID, err := result.LastInsertId()
-        if err != nil {
-            return 0, err
-        }
+	if err == sql.ErrNoRows {
+		// Chat room tidak ada, buat chat room baru
+		insertQuery := `INSERT INTO chat_room (user1_id, user2_id) VALUES (?, ?)`
+		result, err := s.DB.Exec(insertQuery, user1ID, user2ID)
+		if err != nil {
+			return 0, err
+		}
 
-        return int(newChatRoomID), nil
-    } else if err != nil {
-        // Terjadi error selain ErrNoRows
-        return 0, err
-    }
+		// Dapatkan ID chat room yang baru dibuat
+		newChatRoomID, err := result.LastInsertId()
+		if err != nil {
+			return 0, err
+		}
 
-    // Chat room sudah ada, kembalikan ID-nya
-    return chatRoomID, nil
+		return int(newChatRoomID), nil
+	} else if err != nil {
+		// Terjadi error selain ErrNoRows
+		return 0, err
+	}
+
+	// Chat room sudah ada, kembalikan ID-nya
+	return chatRoomID, nil
 }
-
 
 // isJapanese checks if the given text is in Japanese
 // func (s *Server) isJapanese(text string) bool {
