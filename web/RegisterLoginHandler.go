@@ -204,16 +204,28 @@ func (s *Server) LoginUserHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	// Dapatkan ID pengguna berdasarkan email dari token
+	userId, err := dbAto.GetUserIDByEmail(s.DB, user.Email)
+	if err != nil {
+		http.Error(w, "Failed to get user ID: "+err.Error(), http.StatusInternalServerError)
+		return
+	}
+
 	// Berikan respons dengan token JWT dan informasi akun
 	response := map[string]interface{}{
 		"token": token,
 		"account": map[string]interface{}{
+			"id":           userId,     // ID dari akun yang berhasil login
 			"email":        user.Email,  // Email dari akun yang berhasil login
-			"name":         name,        // Nama dari akun yang berhasil login
+			"name":         name,   // Nama dari akun yang berhasil login
 			"company_name": companyName, // Nama perusahaan dari akun yang berhasil login
 			"role_name":    roleName,    // Nama role dari akun yang berhasil login
 		},
 	}
+
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(http.StatusOK)
+	json.NewEncoder(w).Encode(response)
 
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(http.StatusOK)
