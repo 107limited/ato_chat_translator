@@ -136,20 +136,34 @@ func (s *Server) PersonalDataHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	// Mendapatkan companyId dari database
+	companyId, err := dbAto.GetCompanyIDByEmail(s.DB, email)
+	if err != nil {
+		http.Error(w, "Failed to get company ID: "+err.Error(), http.StatusInternalServerError)
+		return
+	}
+
+	// Dapatkan company_name berdasarkan companyId
+	companyName, err := dbAto.GetCompanyNameByID(s.DB, companyId)
+	if err != nil {
+		http.Error(w, "Failed to get company name: "+err.Error(), http.StatusInternalServerError)
+		return
+	}
+
 	// Kirim token serta detail akun yang berhasil diupdate sebagai bagian dari respons
 	response := map[string]interface{}{
 		"message": "User logged in and updated Personal Data successfully",
 		"token":   token,
 		"account": map[string]interface{}{
-			"name":   personalData.Name,   // Nama dari data personal
-			"roleID": personalData.RoleID, // RoleID dari data personal
-			// Tambahkan informasi lain jika diperlukan
+			"name":        personalData.Name,   // Nama dari data personal
+			"roleID":      personalData.RoleID, // RoleID dari data personal
+			"companyName": companyName,         // Nama perusahaan dari company_id
 		},
 	}
 
 	w.Header().Set("Content-Type", "application/json")
-	w.WriteHeader(http.StatusOK)        // Status OK untuk pembaruan data
-	json.NewEncoder(w).Encode(response) // Mengirimkan respons dalam format JSON
+	w.WriteHeader(http.StatusOK)
+	json.NewEncoder(w).Encode(response)
 
 }
 
@@ -175,20 +189,27 @@ func (s *Server) LoginUserHandler(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "Failed to generate JWT token", http.StatusInternalServerError)
 		return
 	}
+	// Dapatkan informasi tambahan dari database
+	name, companyName, roleName, err := dbAto.GetAdditionalUserInfo(s.DB, user.Email)
+	if err != nil {
+		http.Error(w, "Failed to get additional user info: "+err.Error(), http.StatusInternalServerError)
+		return
+	}
 
 	// Berikan respons dengan token JWT dan informasi akun
 	response := map[string]interface{}{
 		"token": token,
 		"account": map[string]interface{}{
-			"email": user.Email, // Email dari akun yang berhasil login
-			//"name":  user.Name,  // Nama dari akun yang berhasil login
-			// Tambahkan informasi lain jika diperlukan
+			"email":       user.Email,  // Email dari akun yang berhasil login
+			"name":        name,        // Nama dari akun yang berhasil login
+			"company_name": companyName, // Nama perusahaan dari akun yang berhasil login
+			"role_name":    roleName,    // Nama role dari akun yang berhasil login
 		},
 	}
 
 	w.Header().Set("Content-Type", "application/json")
-	w.WriteHeader(http.StatusOK)        // Status OK untuk login sukses
-	json.NewEncoder(w).Encode(response) // Mengirimkan respons dalam format JSON
+	w.WriteHeader(http.StatusOK)
+	json.NewEncoder(w).Encode(response)
 
 }
 

@@ -7,7 +7,7 @@ type UserRegistration struct {
 }
 
 type LoginReqData struct {
-	UserID     string `json:"userId"`
+	UserID     int `json:"user_id"`
 	Com        string `json:"company"`
 	ComId      int64  `json:"companyId"`
 	Department string `json:"department"`
@@ -19,7 +19,7 @@ type LoginReqData struct {
 type UserLogin struct {
 	Email      string `json:"email"`
 	Password   string `json:"password"`
-	UserID     string `json:"userId"`
+	UserID     int `json:"user_id"`
 	Com        string `json:"company"`
 	ComId      int64  `json:"companyId"`
 	Department string `json:"department"`
