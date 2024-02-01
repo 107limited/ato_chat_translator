@@ -1,8 +1,10 @@
 package web
 
 import (
+	"ato_chat/models"
 	"database/sql"
 	"encoding/json"
+	"time"
 
 	"net/http"
 	"strconv"
@@ -13,12 +15,12 @@ import (
 
 // ChatRoomHandler adalah struct yang menangani request terkait chat room.
 type ChatRoomHandler struct {
-    DB *sql.DB
+	DB *sql.DB
 }
 
 // NewChatRoomHandler adalah konstruktor untuk membuat instance baru dari ChatRoomHandler.
 func NewChatRoomHandler(db *sql.DB) *ChatRoomHandler {
-    return &ChatRoomHandler{DB: db}
+	return &ChatRoomHandler{DB: db}
 }
 
 // CreateChatRoom handles the creation of a new chat room
@@ -110,61 +112,53 @@ func (h *ChatRoomHandler) GetChatRoom(w http.ResponseWriter, r *http.Request) {
 	json.NewEncoder(w).Encode(map[string]int{"chat_room_id": chatRoomID})
 }
 
-// SaveConversation handles saving a conversation to a chat room
-// func (h *ChatRoomHandler) SaveConversation(w http.ResponseWriter, r *http.Request) {
-// 	// Parse JSON request body untuk mendapatkan detail percakapan
-// 	var conversationRequest models.ConversationRequest
-// 	if err := json.NewDecoder(r.Body).Decode(&conversationRequest); err != nil {
-// 		http.Error(w, "Failed to parse request body", http.StatusBadRequest)
-// 		return
-// 	}
+// GetConversationsByChatRoom mengambil percakapan dari database berdasarkan chat_room_id.
+func GetConversationsByChatRoom(db *sql.DB, chatRoomID int) ([]models.Conversation, error) {
+	var conversations []models.Conversation
 
-// 	// Validasi chat_room_id (opsional)
-// 	if !h.isChatRoomExists(conversationRequest.ChatRoomID) {
-// 		http.Error(w, "Chat room does not exist", http.StatusBadRequest)
-// 		return
-// 	}
+	query := `SELECT id, japanese_text, english_text, user_id, company_id, chat_room_id, created_at, date, speaker FROM conversations WHERE chat_room_id = ?`
+	rows, err := db.Query(query, chatRoomID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
 
-// 	// Translate original message jika diperlukan
-// 	translatedMessage, err := h.GPT4Translator.TranslateMessage(conversationRequest.OriginalMessage)
-// 	if err != nil {
-// 		http.Error(w, fmt.Sprintf("Failed to translate message: %v", err), http.StatusInternalServerError)
-// 		return
-// 	}
+	for rows.Next() {
+		var conv models.Conversation
+		var createdAt string // Menggunakan string untuk menampung waktu
+		if err := rows.Scan(&conv.ID, &conv.JapaneseText, &conv.EnglishText, &conv.UserID, &conv.CompanyID, &conv.ChatRoomID, &createdAt, &conv.Date, &conv.Speaker); err != nil {
+			return nil, err
+		}
+	
+		// Menggunakan format yang sesuai dengan output dari database Anda
+		conv.CreatedAt, err = time.Parse("2006-01-02 15:04:05", createdAt)
+		if err != nil {
+			return nil, err
+		}
+		conversations = append(conversations, conv)
+	}
+	
 
-// 	// Buat objek Conversation
-// 	conversation := models.Conversation{
-// 		Speaker:           conversationRequest.Speaker,
-// 		JapaneseText:      "", // Atur sesuai dengan kebutuhan
-// 		EnglishText:       translatedMessage,
-// 		UserID:            conversationRequest.UserID,
-// 		CompanyID:         conversationRequest.CompanyID,
-// 		ChatRoomID:        conversationRequest.ChatRoomID,
-// 		OriginalMessage:   conversationRequest.OriginalMessage,
-// 		TranslatedMessage: translatedMessage,
-// 		CreatedAt:         time.Now(),
-// 	}
+	return conversations, nil
+}
 
-// 	// Simpan percakapan ke dalam database
-// 	err = h.ConversationRepo.SaveConversation(&conversation)
-// 	if err != nil {
-// 		http.Error(w, fmt.Sprintf("Failed to save conversation: %v", err), http.StatusInternalServerError)
-// 		return
-// 	}
+// GetConversationsByChatRoomHandler menangani permintaan HTTP untuk mengambil percakapan berdasarkan chat_room_id.
+func (s *Server) GetConversationsByChatRoomHandler(w http.ResponseWriter, r *http.Request) {
+	vars := mux.Vars(r)
+	chatRoomIDStr := vars["chat_room_id"]
 
-// 	// Kirim respons sukses
-// 	w.WriteHeader(http.StatusCreated)
-// 	json.NewEncoder(w).Encode(map[string]string{"message": "Conversation saved successfully"})
-// }
+	chatRoomID, err := strconv.Atoi(chatRoomIDStr)
+	if err != nil {
+		http.Error(w, "Invalid chat room ID", http.StatusBadRequest)
+		return
+	}
 
-// // isChatRoomExists checks if a chat room exists in the database
-// func (h *ChatRoomHandler) isChatRoomExists(chatRoomID int) bool {
-// 	var exists bool
-// 	query := `SELECT EXISTS(SELECT 1 FROM chat_room WHERE id = ?)`
-// 	err := h.DB.QueryRow(query, chatRoomID).Scan(&exists)
-// 	if err != nil {
-// 		log.Error("Failed to execute query: ", err)
-// 		return false
-// 	}
-// 	return exists
-// }
+	conversations, err := GetConversationsByChatRoom(s.DB, chatRoomID)
+	if err != nil {
+		http.Error(w, "Failed to get conversations: "+err.Error(), http.StatusInternalServerError)
+		return
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(conversations)
+}

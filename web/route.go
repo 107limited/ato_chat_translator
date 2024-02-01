@@ -24,4 +24,7 @@ func (s *Server) initializeRoutes() {
 
     // Tambahkan rute untuk GetAllRolesHandler
     s.Router.HandleFunc("/api/roles", s.GetAllRolesHandler).Methods("GET")
+
+    // Tambahkan rute untuk mendapatkan percakapan berdasarkan chat_room_id.
+    s.Router.HandleFunc("/api/conversations-by-chat-room-id/{chat_room_id}", s.GetConversationsByChatRoomHandler).Methods("GET")
 }

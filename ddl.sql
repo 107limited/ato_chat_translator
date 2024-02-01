@@ -46,3 +46,7 @@ CREATE TABLE conversations (
 CREATE TABLE `sec_m` (
   `private_key` blob DEFAULT NULL
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
+
+SET FOREIGN_KEY_CHECKS = 0; -- Menonaktifkan foreign key checks
+TRUNCATE TABLE users; -- Menghapus semua isi tabel users
+SET FOREIGN_KEY_CHECKS = 1; -- Mengaktifkan kembali foreign key checks
