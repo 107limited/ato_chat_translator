@@ -6,11 +6,11 @@ func (s *Server) initializeRoutes() {
     s.Router.HandleFunc("/api/conversations", s.SaveConversationHandler).Methods("POST")
     s.Router.HandleFunc("/api/conversations", s.GetAllConversationsHandler).Methods("GET")
     s.Router.HandleFunc("/api/translate", s.TranslateMessageHandler).Methods("POST")
-    s.Router.HandleFunc("/api/register", s.RegisterUserHandler).Methods("POST")
-
+    
     // Tambahkan endpoint untuk Register dan Personal data
-    s.Router.HandleFunc("/api/login", s.LoginUserHandler).Methods("POST")
+    s.Router.HandleFunc("/api/register", s.RegisterUserHandler).Methods("POST")
     s.Router.HandleFunc("/api/personaldata", s.PersonalDataHandler).Methods("POST")
+    
 
     // Tambahkan endpoint untuk login
     s.Router.HandleFunc("/api/login", s.LoginUserHandler).Methods("POST")

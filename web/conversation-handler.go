@@ -2,6 +2,7 @@ package web
 
 import (
 	"ato_chat/chat"
+	"ato_chat/dbAto"
 	"ato_chat/jwt"
 	"ato_chat/models"
 	"ato_chat/translation"
@@ -138,6 +139,14 @@ func (s *Server) SaveConversationHandler(w http.ResponseWriter, r *http.Request)
 		// Opsi: Validasi apakah chat room yang diberikan valid
 	}
 
+	// Dapatkan company_name dari database
+	companyName, err := dbAto.GetCompanyNameByID(s.DB, translationRequest.CompanyID)
+	if err != nil {
+		log.WithError(err).Error("Failed to get company name")
+		http.Error(w, fmt.Sprintf("Failed to get company name: %v", err), http.StatusInternalServerError)
+		return
+	}
+
 	// Create Conversation object dengan speaker dari database
 	t := models.Conversation{
 		Speaker:           userName, // Gunakan userName sebagai Speaker
@@ -168,11 +177,13 @@ func (s *Server) SaveConversationHandler(w http.ResponseWriter, r *http.Request)
 			Speaker           string `json:"speaker"`
 			OriginalMessage   string `json:"original_message"`
 			TranslatedMessage string `json:"translated_message"`
+			CompanyName       string `json:"company_name"` // Pastikan field ini ada dalam struct
 		}{
 			{
-				Speaker:           userName, // Gunakan userName di sini juga
+				Speaker:           userName,
 				OriginalMessage:   translationRequest.OriginalMessage,
 				TranslatedMessage: translatedMessage,
+				CompanyName:       companyName, // Menambahkan company_name di sini
 			},
 		},
 	}
@@ -181,6 +192,7 @@ func (s *Server) SaveConversationHandler(w http.ResponseWriter, r *http.Request)
 	w.WriteHeader(http.StatusCreated)
 	w.Header().Set("Content-Type", "application/json")
 	json.NewEncoder(w).Encode(translationResponse)
+
 }
 
 func (s *Server) determineOrCreateChatRoom(user1ID, user2ID int) (int, error) {
@@ -275,17 +287,35 @@ func (s *Server) TranslateMessageHandler(w http.ResponseWriter, r *http.Request)
 		return
 	}
 
+	var userName string
+	err = s.DB.QueryRow("SELECT name FROM users WHERE id = ?", translationRequest.UserID).Scan(&userName)
+	if err != nil {
+		log.WithError(err).Error("Failed to retrieve user name")
+		http.Error(w, "Failed to retrieve user name", http.StatusInternalServerError)
+		return
+	}
+
+	// Dapatkan company_name dari database
+	companyName, err := dbAto.GetCompanyNameByID(s.DB, translationRequest.CompanyID)
+	if err != nil {
+		log.WithError(err).Error("Failed to get company name")
+		http.Error(w, fmt.Sprintf("Failed to get company name: %v", err), http.StatusInternalServerError)
+		return
+	}
+
 	// Membuat objek hasil terjemahan
 	translationResponse := models.TranslationResponse{
 		Conversations: []struct {
 			Speaker           string `json:"speaker"`
 			OriginalMessage   string `json:"original_message"`
 			TranslatedMessage string `json:"translated_message"`
+			CompanyName       string `json:"company_name"`
 		}{
 			{
-				Speaker:           translationRequest.Speaker,
+				Speaker:           userName, // Dari kode sebelumnya
 				OriginalMessage:   translationRequest.OriginalMessage,
 				TranslatedMessage: translatedMessage,
+				CompanyName:       companyName, // Menambahkan company_name di sini
 			},
 		},
 	}
