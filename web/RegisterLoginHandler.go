@@ -1,6 +1,7 @@
 package web
 
 import (
+	jwtforreg "ato_chat/JwtForReg"
 	"ato_chat/dbAto"
 	"ato_chat/jwt"
 	"ato_chat/models"
@@ -57,27 +58,36 @@ func (s *Server) RegisterUserHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Membuat token JWT setelah validasi dan hashing password
-	token, err := jwt.CreateTokenOrSession(userData.Email, hashedPassword, userData.CompanyID)
+	// Simpan email, password yang di-hash, dan company_id ke database
+	_, err = s.DB.Exec("INSERT INTO users (email, password, company_id) VALUES (?, ?, ?)",
+		userData.Email, hashedPassword, userData.CompanyID)
+	if err != nil {
+		http.Error(w, "Failed to save user to database: "+err.Error(), http.StatusInternalServerError)
+		return
+	}
+
+	// Buat token JWT (misalnya menggunakan userID yang baru dibuat)
+	token, err := jwtforreg.CreateTokenOrSession(userData.Email)
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
 
-	// validationData := models.RegistrationValidation{
-	// 	Email:    userData.Email,
-	// 	Password: userData.Password,
-	// 	Company:  userData.Company,
-	// }
+	// Kirim token serta detail akun yang berhasil didaftarkan sebagai bagian dari respons
+	response := map[string]interface{}{
+		"message": "User registered successfully, complete personal data!",
+		"token":   token,
+		"account": map[string]interface{}{
+			"email":     userData.Email,     // email dari data pendaftaran
+			"companyId": userData.CompanyID, // companyId dari data pendaftaran
+			// Tambahkan informasi lain jika diperlukan
+		},
+	}
 
-	// Kirim token sebagai respons
-	response := map[string]interface{}{"message": "User registered successfully", "token": token}
 	w.Header().Set("Content-Type", "application/json")
-	w.WriteHeader(http.StatusCreated)
-	json.NewEncoder(w).Encode(response)
+	w.WriteHeader(http.StatusCreated)   // Status 201 menandakan 'Created'
+	json.NewEncoder(w).Encode(response) // Mengirimkan respons dalam format JSON
 
-	// Anda dapat menyimpan data validasiData di sini atau mengirimkannya ke langkah berikutnya
-	// dalam proses pendaftaran.
 }
 
 func (s *Server) PersonalDataHandler(w http.ResponseWriter, r *http.Request) {
@@ -90,14 +100,14 @@ func (s *Server) PersonalDataHandler(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Mendapatkan dan memvalidasi token dari header
-	token := r.Header.Get("Authorization") // Sesuaikan dengan cara Anda mengirim token
-	email, companyId, err := jwt.ValidateTokenOrSession(token)
+	authToken := r.Header.Get("Authorization") // Sesuaikan dengan cara Anda mengirim token
+	email, _, err := jwt.ValidateTokenOrSession(authToken)
 	if err != nil {
 		http.Error(w, "Invalid token: "+err.Error(), http.StatusUnauthorized)
 		return
 	}
 
-	
+	// Gunakan email dan companyId sesuai kebutuhan
 
 	// Validasi data personal data
 	if personalData.Name == "" || personalData.RoleID == 0 {
@@ -105,36 +115,42 @@ func (s *Server) PersonalDataHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	hashedPassword, err := dbAto.HashPassword(personalData.Password)
+	// Membuat struct User dengan data yang diperlukan
+	user := models.User{
+		Name:   personalData.Name,
+		RoleID: personalData.RoleID,
+	}
+
+	// Update data pengguna dengan name dan role yang baru
+	_, err = s.DB.Exec("UPDATE users SET name = ?, role_id = ? WHERE email = ?",
+		personalData.Name, personalData.RoleID, email) // 'email' didapat dari token
+	if err != nil {
+		http.Error(w, "Failed to update user data: "+err.Error(), http.StatusInternalServerError)
+		return
+	}
+
+	// Di PersonalDataHandler atau RegisterUserHandler setelah sukses menyimpan data pengguna
+	token, err := dbAto.GenerateTokenAndLogin(s.DB, user.Email, user.CompanyID)
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
 
-	// Membuat struct User dengan data yang diperlukan
-	user := models.User{
-		Email:     email,
-		Password:  hashedPassword, // Menggunakan hashedPassword dari token
-		CompanyID: companyId,      // Pastikan ini sesuai dengan tipe data di database
-		Name:      personalData.Name,
-		RoleID:    personalData.RoleID, // Pastikan menggunakan RoleID
+	// Kirim token serta detail akun yang berhasil diupdate sebagai bagian dari respons
+	response := map[string]interface{}{
+		"message": "User logged in and updated Personal Data successfully",
+		"token":   token,
+		"account": map[string]interface{}{
+			"name":   personalData.Name,   // Nama dari data personal
+			"roleID": personalData.RoleID, // RoleID dari data personal
+			// Tambahkan informasi lain jika diperlukan
+		},
 	}
 
-	// Menciptakan pengguna dan login
-    token, err = dbAto.CreateUserAndLogin(s.DB, user)
-    if err != nil {
-        http.Error(w, err.Error(), http.StatusInternalServerError)
-        return
-    }
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(http.StatusOK)        // Status OK untuk pembaruan data
+	json.NewEncoder(w).Encode(response) // Mengirimkan respons dalam format JSON
 
-    // Kirim token sebagai bagian dari respons jika tidak ada error
-    response := map[string]interface{}{
-        "message": "User registered and logged in successfully",
-        "token":   token, // Token dikirimkan kembali ke klien
-    }
-    w.Header().Set("Content-Type", "application/json")
-    w.WriteHeader(http.StatusCreated) // Status 201 menandakan 'Created'
-    json.NewEncoder(w).Encode(response) // Mengirimkan token dalam format JSON
 }
 
 func (s *Server) LoginUserHandler(w http.ResponseWriter, r *http.Request) {
@@ -146,30 +162,44 @@ func (s *Server) LoginUserHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Lakukan autentikasi berdasarkan username dan password
-	user, err := dbAto.AuthenticateUser(loginData.Username, loginData.Password)
+	// Lakukan autentikasi berdasarkan email dan password
+	user, err := dbAto.AuthenticateUser(loginData.Email, loginData.Password)
 	if err != nil {
-		http.Error(w, "Invalid username or password", http.StatusUnauthorized)
+		http.Error(w, "Invalid email or password", http.StatusUnauthorized)
 		return
 	}
 
-	// Load RSA private key from database
-	privateKey, err := dbAto.LoadKey()
-	if err != nil {
-		http.Error(w, "Failed to load RSA private key", http.StatusInternalServerError)
-		return
-	}
-
-	// Generate JWT token using your custom implementation
-	token, err := jwt.GenerateToken(user, privateKey)
+	// Generate JWT token untuk pengguna yang berhasil login
+	token, err := jwtforreg.CreateToken(user.Email, user.ID)
 	if err != nil {
 		http.Error(w, "Failed to generate JWT token", http.StatusInternalServerError)
 		return
 	}
 
-	// Berikan respons dengan token JWT
-	response := map[string]interface{}{"token": token}
+	// Berikan respons dengan token JWT dan informasi akun
+	response := map[string]interface{}{
+		"token": token,
+		"account": map[string]interface{}{
+			"email": user.Email, // Email dari akun yang berhasil login
+			//"name":  user.Name,  // Nama dari akun yang berhasil login
+			// Tambahkan informasi lain jika diperlukan
+		},
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(http.StatusOK)        // Status OK untuk login sukses
+	json.NewEncoder(w).Encode(response) // Mengirimkan respons dalam format JSON
+
+}
+
+func (s *Server) GetAllUsersHandler(w http.ResponseWriter, r *http.Request) {
+	users, err := dbAto.GetAllUsers(s.DB)
+	if err != nil {
+		http.Error(w, "Failed to get users", http.StatusInternalServerError)
+		return
+	}
+
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(http.StatusOK)
-	json.NewEncoder(w).Encode(response)
+	json.NewEncoder(w).Encode(users)
 }

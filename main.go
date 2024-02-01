@@ -64,8 +64,10 @@ func main() {
 	// Create MySQL Conversation Repository with GPT-4 Translator
 	conversationRepo := chat.ConversationRepository(gpt4Translator)
 
+	chatRoomHandler := web.NewChatRoomHandler(db)
+
 	// Create HTTP server
-	server := web.NewServer(db, conversationRepo, gpt4Translator)
+	server := web.NewServer(db, conversationRepo, gpt4Translator, chatRoomHandler)
 
 	// Set log format as text formatter with full timestamp
 	log.SetFormatter(&log.TextFormatter{
@@ -85,3 +87,4 @@ func main() {
 		handlers.AllowedHeaders([]string{"X-Requested-With", "Content-Type", "Authorization"}),
 	)(server.Router)))
 }
+

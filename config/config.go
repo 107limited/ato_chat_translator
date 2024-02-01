@@ -1,7 +1,7 @@
 package config
 
 import (
-	
+	"database/sql"
 	"fmt"
 	"log"
 	"os"
@@ -28,21 +28,19 @@ const (
 
 // LoadDBConfig loads database configuration from environment variables or .env file
 func LoadDBConfig() DBConfig {
-    err := godotenv.Load()
-    if err != nil {
-        log.Println("Warning: Error loading .env file. Using default values or values from the environment.")
-    }
-    return DBConfig{
-        Username: os.Getenv("DB_USERNAME"),
-        Password: os.Getenv("DB_PASSWORD"),
-        Host:     os.Getenv("DB_HOST"),
-        Port:     getEnvAsInt("DB_PORT", 3308),
-        DBName:   os.Getenv("DB_NAME"),
-        APIKey:   os.Getenv("OPENAI_API_KEY"),
-    }
+	err := godotenv.Load()
+	if err != nil {
+		log.Println("Warning: Error loading .env file. Using default values or values from the environment.")
+	}
+	return DBConfig{
+		Username: os.Getenv("DB_USERNAME"),
+		Password: os.Getenv("DB_PASSWORD"),
+		Host:     os.Getenv("DB_HOST"),
+		Port:     getEnvAsInt("DB_PORT", 3308),
+		DBName:   os.Getenv("DB_NAME"),
+		APIKey:   os.Getenv("OPENAI_API_KEY"),
+	}
 }
-
-
 
 // getEnvAsInt retrieves an environment variable as an integer or returns the default value
 func getEnvAsInt(key string, defaultValue int) int {
@@ -61,11 +59,27 @@ func getEnvAsInt(key string, defaultValue int) int {
 	return value
 }
 
-// GetDBConnectionString returns the formatted database connection string
-func (c *DBConfig) GetDBConnectionString() string {
-    return fmt.Sprintf("%s:%s@tcp(%s:%d)/%s", c.Username, c.Password, c.Host, c.Port, c.DBName)
+// OpenDB opens a new database connection based on the DBConfig
+func OpenDB() (*sql.DB, error) {
+	config := LoadDBConfig()
+	connectionString := fmt.Sprintf("%s:%s@tcp(%s:%d)/%s", config.Username, config.Password, config.Host, config.Port, config.DBName)
+
+	db, err := sql.Open("mysql", connectionString)
+	if err != nil {
+		return nil, err
+	}
+
+	if err := db.Ping(); err != nil {
+		return nil, err
+	}
+
+	return db, nil
 }
 
+// GetDBConnectionString returns the formatted database connection string
+func (c *DBConfig) GetDBConnectionString() string {
+	return fmt.Sprintf("%s:%s@tcp(%s:%d)/%s", c.Username, c.Password, c.Host, c.Port, c.DBName)
+}
 
 const ExpireMinute = 30 // Atur sesuai kebutuhan Anda
 const DiffUTC = 7       // Atur sesuai kebutuhan Anda

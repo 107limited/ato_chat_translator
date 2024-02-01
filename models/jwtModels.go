@@ -11,7 +11,7 @@ type JwtHeader struct {
 
 
 type JwtPayload struct {
-	UserId   string    `json:"uid"`
+	UserId   int    `json:"uid"`
 	Com      string    `json:"company"`
 	ComId    int     `json:"company_id"`
 	Dep      string    `json:"department"`

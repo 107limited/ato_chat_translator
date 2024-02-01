@@ -18,28 +18,25 @@ import (
 	//"golang.org/x/text/language"
 )
 
-// Server adalah struktur data untuk server web
 type Server struct {
-	DB               *sql.DB
-	Router           *mux.Router
-	ConversationRepo chat.ConversationRepository
-	GPT4Translator   translation.Translator
+    DB               *sql.DB
+    Router           *mux.Router
+    ConversationRepo chat.ConversationRepository
+    GPT4Translator   translation.Translator
+    ChatRoomHandler  *ChatRoomHandler
 }
 
-// NewServer membuat instance baru dari Server
-func NewServer(db *sql.DB, conversationRepo chat.ConversationRepository, gpt4Translator translation.Translator) *Server {
-	router := mux.NewRouter()
-
-	server := &Server{
-		DB:               db,
-		Router:           router,
-		ConversationRepo: conversationRepo,
-		GPT4Translator:   gpt4Translator,
-	}
-
-	server.initializeRoutes()
-
-	return server
+// Konstruktor untuk membuat instance baru dari Server dengan ChatRoomHandler
+func NewServer(db *sql.DB, conversationRepo chat.ConversationRepository, gpt4Translator translation.Translator, chatRoomHandler *ChatRoomHandler) *Server {
+    server := &Server{
+        DB:               db,
+        Router:           mux.NewRouter(),
+        ConversationRepo: conversationRepo,
+        GPT4Translator:   gpt4Translator,
+        ChatRoomHandler:  chatRoomHandler,
+    }
+    server.initializeRoutes() // Inisialisasi rute setelah semua handler siap
+    return server
 }
 
 // SaveConversationHandler menangani permintaan untuk menyimpan percakapan
@@ -114,6 +111,19 @@ func (s *Server) SaveConversationHandler(w http.ResponseWriter, r *http.Request)
 		japaneseText = translatedMessage
 	}
 
+	var chatRoomID int
+    if translationRequest.ChatRoomID == 0 {
+        // Jika ChatRoomID tidak disediakan, coba tentukan atau buat chat room baru
+        chatRoomID, err = s.determineOrCreateChatRoom(translationRequest.UserID, translationRequest.OtherUserID) // otherUserID harus ditentukan
+        if err != nil {
+            http.Error(w, "Failed to determine or create chat room", http.StatusInternalServerError)
+            return
+        }
+    } else {
+        chatRoomID = translationRequest.ChatRoomID
+        // Opsi: Validasi apakah chat room yang diberikan valid
+    }
+
 	// Create Conversation object
 	t := models.Conversation{
 		Speaker:           translationRequest.Speaker,
@@ -121,7 +131,7 @@ func (s *Server) SaveConversationHandler(w http.ResponseWriter, r *http.Request)
 		EnglishText:       englishText,
 		UserID:            translationRequest.UserID,
 		CompanyID:         translationRequest.CompanyID,
-		ChatRoomID:        translationRequest.ChatRoomID,
+		ChatRoomID:        chatRoomID,
 		OriginalMessage:   translationRequest.OriginalMessage,
 		TranslatedMessage: translatedMessage,
 		CreatedAt:         time.Now(),
@@ -158,6 +168,38 @@ func (s *Server) SaveConversationHandler(w http.ResponseWriter, r *http.Request)
 	w.Header().Set("Content-Type", "application/json")
 	json.NewEncoder(w).Encode(translationResponse)
 }
+
+func (s *Server) determineOrCreateChatRoom(user1ID, user2ID int) (int, error) {
+    var chatRoomID int
+
+    // Cek apakah chat room sudah ada
+    query := `SELECT id FROM chat_room WHERE (user1_id = ? AND user2ID = ?) OR (user1_id = ? AND user2ID = ?)`
+    err := s.DB.QueryRow(query, user1ID, user2ID, user2ID, user1ID).Scan(&chatRoomID)
+    
+    if err == sql.ErrNoRows {
+        // Chat room tidak ada, buat chat room baru
+        insertQuery := `INSERT INTO chat_room (user1_id, user2_id) VALUES (?, ?)`
+        result, err := s.DB.Exec(insertQuery, user1ID, user2ID)
+        if err != nil {
+            return 0, err
+        }
+
+        // Dapatkan ID chat room yang baru dibuat
+        newChatRoomID, err := result.LastInsertId()
+        if err != nil {
+            return 0, err
+        }
+
+        return int(newChatRoomID), nil
+    } else if err != nil {
+        // Terjadi error selain ErrNoRows
+        return 0, err
+    }
+
+    // Chat room sudah ada, kembalikan ID-nya
+    return chatRoomID, nil
+}
+
 
 // isJapanese checks if the given text is in Japanese
 // func (s *Server) isJapanese(text string) bool {

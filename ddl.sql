@@ -1,14 +1,3 @@
-CREATE TABLE users (
-    id INT PRIMARY KEY AUTO_INCREMENT,
-    email VARCHAR(255) NOT NULL,
-    password VARCHAR(255) NOT NULL,
-    company_id INT,
-    role_id INT,
-    name VARCHAR(255)
-    FOREIGN KEY (company_id) REFERENCES companies(id),
-    FOREIGN KEY (role_id) REFERENCES roles(id)
-);
-
 CREATE TABLE companies (
     id INT PRIMARY KEY AUTO_INCREMENT,
     company_name VARCHAR(255) NOT NULL
@@ -18,6 +7,18 @@ CREATE TABLE roles (
     id INT PRIMARY KEY AUTO_INCREMENT,
     role_name VARCHAR(255) NOT NULL
 );
+
+CREATE TABLE users (
+    id INT PRIMARY KEY AUTO_INCREMENT,
+    email VARCHAR(255) NOT NULL,
+    password VARCHAR(255) NOT NULL,
+    company_id INT,
+    role_id INT,
+    name VARCHAR(255),
+    FOREIGN KEY (company_id) REFERENCES companies(id),
+    FOREIGN KEY (role_id) REFERENCES roles(id)
+);
+
 
 CREATE TABLE chat_room (
     id INT PRIMARY KEY AUTO_INCREMENT,

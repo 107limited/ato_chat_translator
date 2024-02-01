@@ -28,18 +28,14 @@ func GenerateToken(user *models.User, privateKey *rsa.PrivateKey) (string, error
 
 	nowTime := time.Now().Add(time.Hour * config.DiffUTC)
 	payload := models.JwtPayload{
-		UserId:   user.UserID,
-		Com:      user.Company,
+		
 		ComId:    user.CompanyID,
-		Dep:      user.Department,
 		Nam:      user.Name,
-		Address:  user.Address,
 		Lng:      0.0,
 		Lat:      0.0,
 		Iat:      nowTime,
 		Exp:      nowTime.Add(time.Minute * config.ExpireMinute),
 		Iss:      "107",
-		Aut:      user.Auth,
 		SiteType: "orikomi_manage",
 	}
 
@@ -203,25 +199,32 @@ func CreateTokenOrSession(email, hashedPassword string, companyId int) (string, 
 }
 
 func ValidateTokenOrSession(tokenString string) (email string, companyId int, err error) {
-	claims := &CustomClaims{}
+    claims := &CustomClaims{}
 
-	token, err := jwt.ParseWithClaims(tokenString, claims, func(token *jwt.Token) (interface{}, error) {
-		return jwtKey, nil
-	})
+    token, err := jwt.ParseWithClaims(tokenString, claims, func(token *jwt.Token) (interface{}, error) {
+        return jwtKey, nil
+    })
 
-	if err != nil {
-		return "", 0, err
-	}
+    if err != nil {
+        return "", 0, err
+    }
 
-	if !token.Valid {
-		return "", 0, errors.New("invalid token")
-	}
+    if !token.Valid {
+        return "", 0, errors.New("invalid token")
+    }
 
-	email = claims.Email
-	companyId, err = strconv.Atoi(claims.CompanyID) // Konversi kembali ke integer
-	if err != nil {
-		return "", 0, err // Jika konversi gagal, kembalikan error
-	}
+    email = claims.Email
+    // Cek apakah companyId ada dan bukan string kosong
+    if claims.CompanyID != "" {
+        companyId, err = strconv.Atoi(claims.CompanyID)
+        if err != nil {
+            return "", 0, err // Jika konversi gagal
+        }
+    } else {
+        // Jika companyId tidak ada atau string kosong, tentukan nilai default atau error
+        companyId = 0 // atau return error jika companyId harus ada
+    }
 
-	return email, companyId, nil
+    return email, companyId, nil
 }
+
