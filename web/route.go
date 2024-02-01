@@ -21,4 +21,7 @@ func (s *Server) initializeRoutes() {
 
     // Tambahkan endpoint untuk mendapatkan semua pengguna
     s.Router.HandleFunc("/api/users", s.GetAllUsersHandler).Methods("GET")
+
+    // Tambahkan rute untuk GetAllRolesHandler
+    s.Router.HandleFunc("/api/roles", s.GetAllRolesHandler).Methods("GET")
 }
