@@ -17,7 +17,7 @@ type LoginReqData struct {
 }
 
 type UserLogin struct {
-	Username   string `json:"username"`
+	Email      string `json:"email"`
 	Password   string `json:"password"`
 	UserID     string `json:"userId"`
 	Com        string `json:"company"`
@@ -29,27 +29,21 @@ type UserLogin struct {
 }
 
 type User struct {
-	ID         int    `json:"id"`
-	Username   string `json:"username"`
-	Email      string `json:"email"`
-	Password   string `json:"-"`
-	UserID     string `json:"userId"`
-	Company    string `json:"company"`
-	CompanyID  int  `json:"companyId"`
-	Role       int64  `json:"role"`
-	RoleID     int64  `json:"role_id"`
-	Department string `json:"department"`
-	Name       string `json:"name"`
-	Address    string `json:"address"`
-	Auth       int    `json:"auth"`
+	ID        int    `json:"id"`
+	Email     string `json:"email"`
+	Password  string `json:"password,omitempty"` // Sertakan omitempty untuk tidak mengirimkan password dalam response
+	CompanyID int    `json:"company_id,omitempty"`
+	RoleID    int64  `json:"role_id,omitempty"`
+	Name      string `json:"name,omitempty"`
 }
 
 // Struct untuk menyimpan data validasi sementara
 type RegistrationValidation struct {
+	UserId    int    `json:"user_id"`
 	Email     string `json:"email"`
 	Password  string `json:"password"`
 	Company   string `json:"company"`
-	CompanyID int  `json:"company_id"`
+	CompanyID int    `json:"company_id"`
 	// Anda dapat menambahkan field lain sesuai kebutuhan, seperti pesan kesalahan, dll.
 }
 
