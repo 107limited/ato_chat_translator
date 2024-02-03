@@ -50,3 +50,11 @@ CREATE TABLE `sec_m` (
 SET FOREIGN_KEY_CHECKS = 0; -- Menonaktifkan foreign key checks
 TRUNCATE TABLE users; -- Menghapus semua isi tabel users
 SET FOREIGN_KEY_CHECKS = 1; -- Mengaktifkan kembali foreign key checks
+
+SELECT users.id, companies.company_name, users.name, chat_room.id AS chat_room_id, MAX(chat_room.created_at) AS date
+    FROM users
+    JOIN companies ON users.company_id = companies.id
+    JOIN chat_room ON users.id = chat_room.user1_id OR users.id = chat_room.user2_id
+    WHERE users.id = 5
+    GROUP BY chat_room.id
+    ORDER BY date DESC;

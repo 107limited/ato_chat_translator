@@ -43,6 +43,18 @@ func GetAllRoles(db *sql.DB) ([]Role, error) {
     return roles, nil
 }
 
+// CreateRole inserts a new role into the database.
+func CreateRole(db *sql.DB, roleName string) (int, error) {
+    var roleID int
+    query := "INSERT INTO roles (role_name) VALUES (?) RETURNING id"
+    err := db.QueryRow(query, roleName).Scan(&roleID)
+    if err != nil {
+        log.Printf("Error creating new role: %v", err)
+        return 0, err
+    }
+    return roleID, nil
+}
+
 // Di dalam paket dbAto atau paket yang sesuai
 func GetCompanyNameByID(db *sql.DB, companyID int) (string, error) {
     var companyName string
