@@ -124,3 +124,27 @@ func GetUserIDByEmail(db *sql.DB, email string) (int, error) {
     return id, nil
 }
 
+// GetUserById mengambil user berdasarkan id dengan informasi company dan role.
+func GetUserById(db *sql.DB, userID int) (*models.User, error) {
+    var user models.User
+    query := `
+SELECT users.id, users.email, users.password, users.company_id, users.role_id, users.name,
+       companies.company_name AS company_name, roles.role_name AS role_name
+FROM users
+LEFT JOIN companies ON users.company_id = companies.id
+LEFT JOIN roles ON users.role_id = roles.id
+WHERE users.id = ?
+`
+    err := db.QueryRow(query, userID).Scan(
+        &user.ID, &user.Email, &user.Password, &user.CompanyID, &user.RoleID, &user.Name,
+        &user.CompanyName, &user.RoleName,
+    )
+    if err != nil {
+        return nil, fmt.Errorf("error querying user by ID: %v", err)
+    }
+
+    // Hapus nilai password untuk keamanan.
+    user.Password = ""
+
+    return &user, nil
+}

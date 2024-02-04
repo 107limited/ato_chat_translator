@@ -12,8 +12,11 @@ func (s *Server) initializeRoutes() {
 	 s.Router.HandleFunc("/api/personaldata", s.PersonalDataHandler).Methods("POST")
 	  // Tambahkan endpoint untuk login
 	 s.Router.HandleFunc("/api/login", s.LoginUserHandler).Methods("POST")
-	// // Tambahkan endpoint untuk mendapatkan semua pengguna
+	// Tambahkan endpoint untuk mendapatkan semua pengguna
 	s.Router.HandleFunc("/api/users", s.GetAllUsersHandler).Methods("GET")
+	// Get User By Id
+	s.Router.HandleFunc("/api/user/{id}", s.GetUserByIdHandler).Methods("GET")
+
 
 
 	

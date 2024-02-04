@@ -7,8 +7,11 @@ import (
 	"ato_chat/models"
 	"encoding/json"
 	"log"
+	"strconv"
 
 	"net/http"
+
+	"github.com/gorilla/mux"
 )
 
 func (s *Server) RegisterUserHandler(w http.ResponseWriter, r *http.Request) {
@@ -215,9 +218,9 @@ func (s *Server) LoginUserHandler(w http.ResponseWriter, r *http.Request) {
 	response := map[string]interface{}{
 		"token": token,
 		"account": map[string]interface{}{
-			"id":           userId,     // ID dari akun yang berhasil login
+			"id":           userId,      // ID dari akun yang berhasil login
 			"email":        user.Email,  // Email dari akun yang berhasil login
-			"name":         name,   // Nama dari akun yang berhasil login
+			"name":         name,        // Nama dari akun yang berhasil login
 			"company_name": companyName, // Nama perusahaan dari akun yang berhasil login
 			"role_name":    roleName,    // Nama role dari akun yang berhasil login
 		},
@@ -242,5 +245,31 @@ func (s *Server) GetAllUsersHandler(w http.ResponseWriter, r *http.Request) {
 	if err := json.NewEncoder(w).Encode(users); err != nil {
 		log.Printf("Failed to encode users to JSON: %v", err)
 		http.Error(w, "Failed to process data", http.StatusInternalServerError)
+	}
+}
+
+func (s *Server) GetUserByIdHandler(w http.ResponseWriter, r *http.Request) {
+	vars := mux.Vars(r)
+	userIDStr, ok := vars["id"]
+	if !ok {
+		http.Error(w, "user id is required", http.StatusBadRequest)
+		return
+	}
+
+	userID, err := strconv.Atoi(userIDStr)
+	if err != nil {
+		http.Error(w, "invalid user id", http.StatusBadRequest)
+		return
+	}
+
+	user, err := dbAto.GetUserById(s.DB, userID)
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	if err := json.NewEncoder(w).Encode(user); err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
 	}
 }
