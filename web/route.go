@@ -16,6 +16,10 @@ func (s *Server) initializeRoutes() {
 	s.Router.HandleFunc("/api/users", s.GetAllUsersHandler).Methods("GET")
 	// Get User By Id
 	s.Router.HandleFunc("/api/user/{id}", s.GetUserByIdHandler).Methods("GET")
+	// Get User By Company ID
+	s.Router.HandleFunc("/api/users/company/{companyId}", s.GetUsersByCompanyIdHandler).Methods("GET")
+	s.Router.HandleFunc("/api/users/{companyIdentifier}", s.GetUsersByCompanyIdentifierHandler).Methods("GET")
+
 
 
 

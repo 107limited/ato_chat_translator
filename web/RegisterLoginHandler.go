@@ -6,6 +6,7 @@ import (
 	"ato_chat/jwt"
 	"ato_chat/models"
 	"encoding/json"
+	"fmt"
 	"log"
 	"strconv"
 
@@ -272,4 +273,71 @@ func (s *Server) GetUserByIdHandler(w http.ResponseWriter, r *http.Request) {
 	if err := json.NewEncoder(w).Encode(user); err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 	}
+}
+
+// Dalam package web atau package yang sesuai untuk HTTP handler
+
+func (s *Server) GetUsersByCompanyIdHandler(w http.ResponseWriter, r *http.Request) {
+	vars := mux.Vars(r)
+	companyIdStr, ok := vars["companyId"]
+	if !ok {
+		http.Error(w, "Company ID is required", http.StatusBadRequest)
+		return
+	}
+
+	companyId, err := strconv.Atoi(companyIdStr)
+	if err != nil {
+		http.Error(w, "Invalid Company ID", http.StatusBadRequest)
+		return
+	}
+
+	users, err := dbAto.GetUsersByCompanyId(s.DB, companyId)
+	if err != nil {
+		http.Error(w, "Internal Server Error", http.StatusInternalServerError)
+		return
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(users)
+}
+
+// Fungsi helper untuk menerjemahkan antara companyName dan companyId.
+func TranslateCompanyIdentifier(identifier string) (string, error) {
+	// Misalnya, Anda memiliki mapping sederhana ini:
+	if identifier == "107" {
+		return "ATO", nil // Misalkan "ATO" adalah nama untuk company_id 107
+	} else if identifier == "ATO" {
+		return "107", nil // Misalkan Anda ingin menerjemahkan "ATO" menjadi ID 107
+	}
+	return "", fmt.Errorf("invalid identifier")
+}
+
+//handler Get User By Company Name 
+func (s *Server) GetUsersByCompanyIdentifierHandler(w http.ResponseWriter, r *http.Request) {
+    vars := mux.Vars(r)
+    identifier := vars["companyIdentifier"] // Ini bisa berupa ID atau nama
+
+    // Terjemahkan identifier ke bentuk yang diinginkan.
+    translatedIdentifier, err := TranslateCompanyIdentifier(identifier)
+    if err != nil {
+        http.Error(w, "Invalid company identifier", http.StatusBadRequest)
+        return
+    }
+
+    var users []models.User
+    if translatedIdentifier == "ATO" {
+        // Lakukan query berdasarkan company_name jika hasil terjemahannya adalah "ATO"
+        users, err = dbAto.GetUsersByCompanyName(s.DB, translatedIdentifier)
+    } else {
+        // Asumsikan hasil terjemahan adalah "107", lakukan query berdasarkan company_id
+        users, err = dbAto.GetUsersByCompanyName(s.DB, translatedIdentifier)
+    }
+
+    if err != nil {
+        http.Error(w, "Internal Server Error", http.StatusInternalServerError)
+        return
+    }
+
+    w.Header().Set("Content-Type", "application/json")
+    json.NewEncoder(w).Encode(users)
 }

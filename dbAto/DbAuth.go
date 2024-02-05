@@ -17,24 +17,32 @@ import (
 
 // GetAllUsers mengembalikan semua pengguna dari database
 func GetAllUsers(db *sql.DB) ([]models.User, error) {
-	var users []models.User
+    var users []models.User
 
-	query := `SELECT id, email, password, company_id, role_id, name FROM users`
-	rows, err := db.Query(query)
-	if err != nil {
-		return nil, err
-	}
-	defer rows.Close()
+    query := `
+    SELECT users.id, users.email, users.password, users.company_id, users.role_id, users.name,
+           companies.company_name AS company_name, roles.role_name AS role_name
+    FROM users
+    LEFT JOIN companies ON users.company_id = companies.id
+    LEFT JOIN roles ON users.role_id = roles.id`
+    rows, err := db.Query(query)
+    if err != nil {
+        return nil, err
+    }
+    defer rows.Close()
 
-	for rows.Next() {
-		var u models.User
-		if err := rows.Scan(&u.ID, &u.Email, &u.Password, &u.CompanyID, &u.RoleID, &u.Name); err != nil {
-			return nil, err
-		}
-		users = append(users, u)
-	}
+    for rows.Next() {
+        var u models.User
+        // Sesuaikan pemanggilan rows.Scan untuk memasukkan CompanyName dan RoleName
+        if err := rows.Scan(&u.ID, &u.Email, &u.Password, &u.CompanyID, &u.RoleID, &u.Name, &u.CompanyName, &u.RoleName); err != nil {
+            return nil, err
+        }
+        // Pertimbangkan untuk mengosongkan Password sebelum menambahkannya ke slice jika Anda tidak ingin mengirimkan password kembali dalam respons
+        u.Password = ""
+        users = append(users, u)
+    }
 
-	return users, nil
+    return users, nil
 }
 
 func IsValidEmail(email string) bool {
@@ -147,4 +155,65 @@ WHERE users.id = ?
     user.Password = ""
 
     return &user, nil
+}
+
+// Dalam package dbAto atau package yang sesuai untuk akses database
+
+func GetUsersByCompanyId(db *sql.DB, companyId int) ([]models.User, error) {
+    var users []models.User
+
+    query := `
+    SELECT users.id, users.email, users.company_id, users.role_id, users.name,
+           companies.company_name AS company_name, roles.role_name AS role_name
+    FROM users
+    LEFT JOIN companies ON users.company_id = companies.id
+    LEFT JOIN roles ON users.role_id = roles.id
+    WHERE users.company_id = ?`
+    rows, err := db.Query(query, companyId)
+    if err != nil {
+        return nil, err
+    }
+    defer rows.Close()
+
+    for rows.Next() {
+        var u models.User
+        if err := rows.Scan(&u.ID, &u.Email, &u.CompanyID, &u.RoleID, &u.Name, &u.CompanyName, &u.RoleName); err != nil {
+            return nil, err
+        }
+        u.Password = "" // Kosongkan password untuk keamanan
+        users = append(users, u)
+    }
+
+    return users, nil
+}
+
+func GetUsersByCompanyName(db *sql.DB, companyName string) ([]models.User, error) {
+    var users []models.User
+
+    // Perbarui query untuk menggunakan `company_name` sebagai kolom untuk join.
+    query := `
+    SELECT u.id, u.email, u.password, u.company_id, u.role_id, u.name, c.company_name, r.role_name
+FROM users u
+JOIN companies c ON u.company_id = c.id
+LEFT JOIN roles r ON u.role_id = r.id
+WHERE c.company_name = ?
+`
+
+    rows, err := db.Query(query, companyName)
+    if err != nil {
+        return nil, err
+    }
+    defer rows.Close()
+
+    for rows.Next() {
+        var u models.User
+        // Sesuaikan rows.Scan untuk mencakup company_name dan role_name.
+        if err := rows.Scan(&u.ID, &u.Email, &u.Password, &u.CompanyID, &u.RoleID, &u.Name, &u.CompanyName, &u.RoleName); err != nil {
+            return nil, err
+        }
+        u.Password = "" // Kosongkan password untuk keamanan
+        users = append(users, u)
+    }
+
+    return users, nil
 }
