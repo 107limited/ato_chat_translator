@@ -32,8 +32,31 @@ type ChatRoomHandler struct {
 func NewChatRoomHandler(db *sql.DB) *ChatRoomHandler {
 	return &ChatRoomHandler{DB: db}
 }
+func (h *ChatRoomHandler) GetExistingChatRoomId(user1ID, user2ID int) (int64, bool) {
+	var chatRoomID int64
+	query := `SELECT id FROM chat_room WHERE (user1_id = ? AND user2_id = ?) OR (user1_id = ? AND user2_id = ?) LIMIT 1`
+	err := h.DB.QueryRow(query, user1ID, user2ID, user2ID, user1ID).Scan(&chatRoomID)
+	if err != nil {
+		if err == sql.ErrNoRows {
+			return 0, false // No existing chat room found
+		}
+		log.Error("Failed to check if chat room exists: ", err)
+		return 0, false
+	}
+	return chatRoomID, true
+}
 
-// CreateChatRoom handles the creation of a new chat room
+func (h *ChatRoomHandler) isUserExists(userID int) bool {
+	var exists bool
+	query := `SELECT EXISTS(SELECT 1 FROM users WHERE id = ?)`
+	err := h.DB.QueryRow(query, userID).Scan(&exists)
+	if err != nil {
+		log.Printf("Failed to check if user exists: %v", err)
+		return false
+	}
+	return exists
+}
+
 func (h *ChatRoomHandler) CreateChatRoom(w http.ResponseWriter, r *http.Request) {
 	// Extract user IDs from the request
 	var req struct {
@@ -51,8 +74,19 @@ func (h *ChatRoomHandler) CreateChatRoom(w http.ResponseWriter, r *http.Request)
 		return
 	}
 
-	// Create a new chat room in the database
-	var chatRoomID int64
+	// Cek apakah chat room antara dua user sudah ada dan dapatkan ID-nya jika ada
+	chatRoomID, exists := h.GetExistingChatRoomId(req.User1ID, req.User2ID)
+	if exists {
+		resp := models.ChatRoomResponse{
+			Message:    "Chat room between these users already exists",
+			ChatRoomID: chatRoomID,
+		}
+		w.WriteHeader(http.StatusBadRequest) // Atau gunakan http.StatusConflict jika lebih sesuai
+		json.NewEncoder(w).Encode(resp)
+		return
+	}
+
+	// Jika tidak ada, buat chat room baru
 	query := `INSERT INTO chat_room (user1_id, user2_id) VALUES (?, ?)`
 	result, err := h.DB.Exec(query, req.User1ID, req.User2ID)
 	if err != nil {
@@ -61,7 +95,6 @@ func (h *ChatRoomHandler) CreateChatRoom(w http.ResponseWriter, r *http.Request)
 		return
 	}
 
-	// Get the ID of the newly created chat room
 	chatRoomID, err = result.LastInsertId()
 	if err != nil {
 		http.Error(w, "Failed to retrieve chat room ID", http.StatusInternalServerError)
@@ -69,21 +102,9 @@ func (h *ChatRoomHandler) CreateChatRoom(w http.ResponseWriter, r *http.Request)
 		return
 	}
 
-	// Respond with the created chat room details
+	// Respond dengan detail chat room yang baru dibuat
 	w.WriteHeader(http.StatusCreated)
 	json.NewEncoder(w).Encode(map[string]int64{"chat_room_id": chatRoomID})
-}
-
-// isUserExists checks if a user exists in the users table
-func (h *ChatRoomHandler) isUserExists(userID int) bool {
-	var exists bool
-	query := `SELECT EXISTS(SELECT 1 FROM users WHERE id = ?)`
-	err := h.DB.QueryRow(query, userID).Scan(&exists)
-	if err != nil {
-		log.Error("Failed to execute query: ", err)
-		return false
-	}
-	return exists
 }
 
 // GetAllChatRoomsHandler handles the request to get all chat rooms.
