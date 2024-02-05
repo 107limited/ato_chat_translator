@@ -82,7 +82,9 @@ func GetChatRoomsByUserID(db *sql.DB, userID int) ([]models.ChatRoomDetail, erro
         WHEN u.id = cr.user1_id THEN c2.company_name 
         ELSE c1.company_name 
     END AS company_name,
-    cr.created_at
+    cr.created_at,
+    lm.english_text AS last_message_english,
+    lm.japanese_text AS last_message_japanese
 FROM 
     chat_room cr
 JOIN 
@@ -95,13 +97,22 @@ JOIN
     companies c1 ON u1.company_id = c1.id
 JOIN 
     companies c2 ON u2.company_id = c2.id
+LEFT JOIN (
+    SELECT 
+        chat_room_id, 
+        english_text, 
+        japanese_text,
+        ROW_NUMBER() OVER(PARTITION BY chat_room_id ORDER BY created_at DESC) as rn
+    FROM 
+        conversations
+) lm ON cr.id = lm.chat_room_id AND lm.rn = 1
 WHERE 
-    u.id = ? AND (cr.user1_id = ? OR cr.user2_id = ?)
+    u.id = ?
 ORDER BY 
     cr.created_at DESC;
 `
 
-	rows, err := db.Query(query, userID, userID, userID) // Memasukkan userID tiga kali untuk ketiga placeholder
+	rows, err := db.Query(query, userID) // Memasukkan userID tiga kali untuk ketiga placeholder
 
 	if err != nil {
 		return nil, fmt.Errorf("error querying chat rooms by user ID: %v", err)
@@ -110,16 +121,26 @@ ORDER BY
 
 	for rows.Next() {
 		var room models.ChatRoomDetail
-		var createdAtStr string // Gunakan string untuk menerima timestamp
-		if err := rows.Scan(&room.ChatRoomID, &room.UserID, &room.Name, &room.CompanyName, &createdAtStr); err != nil {
+		var createdAtStr string
+		var lastMessageEnglish sql.NullString // Gunakan sql.NullString untuk menangani NULL
+		var lastMessageJapanese sql.NullString
+
+		if err := rows.Scan(&room.ChatRoomID, &room.UserID, &room.Name, &room.CompanyName, &createdAtStr, &lastMessageEnglish, &lastMessageJapanese); err != nil {
 			return nil, fmt.Errorf("error scanning chat room row: %v", err)
 		}
 
-		// Konversi string timestamp ke time.Time
+		// Konversi createdAtStr ke time.Time
 		room.CreatedAt, err = time.Parse("2006-01-02 15:04:05", createdAtStr)
 		if err != nil {
 			return nil, fmt.Errorf("error parsing created_at timestamp: %v", err)
 		}
+
+		// Bangun LastMessage
+		room.LastMessage = models.LastMessage{
+			English:  lastMessageEnglish.String,
+			Japanese: lastMessageJapanese.String,
+		}
+
 		rooms = append(rooms, room)
 	}
 
