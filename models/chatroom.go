@@ -17,3 +17,8 @@ type ChatRoom struct {
 	User2ID   int       `json:"user2_id"`
 	CreatedAt time.Time `json:"created_at"`
 }
+
+type ChatRoomResponse struct {
+    Message     string `json:"message"`
+    ChatRoomID  int64  `json:"chat_room_id,omitempty"` // Omitempty akan menyembunyikan field ini jika nilainya adalah 0
+}
