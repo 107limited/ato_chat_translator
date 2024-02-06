@@ -57,6 +57,37 @@ func (h *ChatRoomHandler) isUserExists(userID int) bool {
 	return exists
 }
 
+func (h *ChatRoomHandler) CheckOrCreateChatRoom(user1ID, user2ID int) (int64, error) {
+    var chatRoomID int64
+
+    // Cek apakah chat room sudah ada
+    queryCheck := `SELECT id FROM chat_room WHERE (user1_id = ? AND user2_id = ?) OR (user1_id = ? AND user2_id = ?) LIMIT 1`
+    err := h.DB.QueryRow(queryCheck, user1ID, user2ID, user2ID, user1ID).Scan(&chatRoomID)
+    if err != nil && err != sql.ErrNoRows {
+        // Jika terjadi error selain tidak ditemukannya baris
+        return 0, fmt.Errorf("error checking for existing chat room: %v", err)
+    }
+    if chatRoomID > 0 {
+        // Chat room sudah ada
+        return chatRoomID, nil
+    }
+
+    // Jika tidak ada, buat chat room baru
+    queryCreate := `INSERT INTO chat_room (user1_id, user2_id) VALUES (?, ?)`
+    result, err := h.DB.Exec(queryCreate, user1ID, user2ID)
+    if err != nil {
+        return 0, fmt.Errorf("error creating new chat room: %v", err)
+    }
+
+    chatRoomID, err = result.LastInsertId()
+    if err != nil {
+        return 0, fmt.Errorf("error getting new chat room ID: %v", err)
+    }
+
+    return chatRoomID, nil
+}
+
+
 func (h *ChatRoomHandler) CreateChatRoom(w http.ResponseWriter, r *http.Request) {
 	// Extract user IDs from the request
 	var req struct {

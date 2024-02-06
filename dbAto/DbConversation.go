@@ -84,7 +84,9 @@ func GetChatRoomsByUserID(db *sql.DB, userID int) ([]models.ChatRoomDetail, erro
     END AS company_name,
     cr.created_at,
     lm.english_text AS last_message_english,
-    lm.japanese_text AS last_message_japanese
+    lm.japanese_text AS last_message_japanese,
+    lm.user_id AS last_message_user_id, -- Gunakan user_id sebagai pengirim pesan terakhir
+    lm.date AS last_message_date
 FROM 
     chat_room cr
 JOIN 
@@ -102,6 +104,8 @@ LEFT JOIN (
         chat_room_id, 
         english_text, 
         japanese_text,
+        user_id, -- Menggunakan user_id
+        date, -- Pastikan kolom date diambil dari tabel conversations
         ROW_NUMBER() OVER(PARTITION BY chat_room_id ORDER BY created_at DESC) as rn
     FROM 
         conversations
@@ -110,6 +114,7 @@ WHERE
     u.id = ?
 ORDER BY 
     cr.created_at DESC;
+
 `
 
 	rows, err := db.Query(query, userID) // Memasukkan userID tiga kali untuk ketiga placeholder
@@ -122,10 +127,11 @@ ORDER BY
 	for rows.Next() {
 		var room models.ChatRoomDetail
 		var createdAtStr string
-		var lastMessageEnglish sql.NullString // Gunakan sql.NullString untuk menangani NULL
-		var lastMessageJapanese sql.NullString
+		var lastMessageEnglish, lastMessageJapanese sql.NullString
+		var lastMessageUser sql.NullInt64 // Untuk menangani user_id yang bisa NULL
+		var lastMessageDate sql.NullInt64
 
-		if err := rows.Scan(&room.ChatRoomID, &room.UserID, &room.Name, &room.CompanyName, &createdAtStr, &lastMessageEnglish, &lastMessageJapanese); err != nil {
+		if err := rows.Scan(&room.ChatRoomID, &room.UserID, &room.Name, &room.CompanyName, &createdAtStr, &lastMessageEnglish, &lastMessageJapanese, &lastMessageUser, &lastMessageDate); err != nil {
 			return nil, fmt.Errorf("error scanning chat room row: %v", err)
 		}
 
@@ -134,11 +140,48 @@ ORDER BY
 		if err != nil {
 			return nil, fmt.Errorf("error parsing created_at timestamp: %v", err)
 		}
+		var formattedDate string
+		if lastMessageDate.Valid {
+			// Konversi Unix timestamp ke time.Time
+			timestamp := time.Unix(lastMessageDate.Int64, 0)
+			// Format tanggal sesuai kebutuhan Anda
+			formattedDate = timestamp.Format("2006-01-02 15:04:05") // Contoh format
+		} else {
+			// Tentukan bagaimana Anda ingin menangani NULL, bisa dengan memberi nilai default atau kosong
+			formattedDate = "No date available" // Atau biarkan kosong
+		}
 
-		// Bangun LastMessage
+		if lastMessageUser.Valid {
+			// lastMessageUser.Int64 memiliki nilai user_id yang valid
+			fmt.Println("Last message user ID:", lastMessageUser.Int64)
+		} else {
+			// Tidak ada user_id untuk pesan terakhir (mungkin karena tidak ada pesan)
+			fmt.Println("No last message user ID")
+		}
+
+		// Contoh memasukkan ke dalam struktur response
+		if lastMessageUser.Valid {
+			room.LastMessageUser = lastMessageUser.Int64
+		} else {
+			room.LastMessageUser = 0 // Atau pilih untuk tidak menetapkan / menggunakan 'omitempty' di tag JSON
+		}
+		var userID int64 // Siapkan variabel untuk menampung user_id
+
+		// Periksa apakah lastMessageUser memiliki nilai valid
+		if lastMessageUser.Valid {
+			userID = lastMessageUser.Int64 // Gunakan nilai int64 jika valid
+		} else {
+			userID = 0 // Atau nilai default yang diinginkan ketika user_id adalah NULL
+		}
+
+		room.LastMessage.Date = formattedDate
+
+		// Sekarang, gunakan userID yang sudah diolah saat membangun LastMessage
 		room.LastMessage = models.LastMessage{
 			English:  lastMessageEnglish.String,
 			Japanese: lastMessageJapanese.String,
+			UserID:   userID, // Gunakan userID yang sudah diolah
+			Date:     formattedDate,
 		}
 
 		rooms = append(rooms, room)
