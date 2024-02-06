@@ -77,6 +77,14 @@ func (s *Server) SaveConversationHandler(w http.ResponseWriter, r *http.Request)
 		return
 	}
 
+	/// Cek atau buat chat room baru
+	chatRoomID, err := s.ChatRoomHandler.CheckOrCreateChatRoom(translationRequest.User1ID, translationRequest.User2ID)
+	if err != nil {
+		log.WithError(err).Error("Failed to check or create chat room")
+		http.Error(w, "Failed to check or create chat room", http.StatusInternalServerError)
+		return
+	}
+
 	// Konversi nilai "date" ke int64
 	var dateInt64 int64
 	if translationRequest.Date >= 0 {
@@ -104,7 +112,7 @@ func (s *Server) SaveConversationHandler(w http.ResponseWriter, r *http.Request)
 
 	// Ambil nama pengguna dari database berdasarkan user_id
 	var userName string
-	err = s.DB.QueryRow("SELECT name FROM users WHERE id = ?", translationRequest.UserID).Scan(&userName)
+	err = s.DB.QueryRow("SELECT name FROM users WHERE id = ?", translationRequest.User1ID).Scan(&userName)
 	if err != nil {
 		log.WithError(err).Error("Failed to retrieve user name")
 		http.Error(w, "Failed to retrieve user name", http.StatusInternalServerError)
@@ -126,19 +134,6 @@ func (s *Server) SaveConversationHandler(w http.ResponseWriter, r *http.Request)
 		japaneseText = translatedMessage
 	}
 
-	var chatRoomID int
-	if translationRequest.ChatRoomID == 0 {
-		// Jika ChatRoomID tidak disediakan, coba tentukan atau buat chat room baru
-		chatRoomID, err = s.determineOrCreateChatRoom(translationRequest.UserID, translationRequest.OtherUserID) // otherUserID harus ditentukan
-		if err != nil {
-			http.Error(w, "Failed to determine or create chat room", http.StatusInternalServerError)
-			return
-		}
-	} else {
-		chatRoomID = translationRequest.ChatRoomID
-		// Opsi: Validasi apakah chat room yang diberikan valid
-	}
-
 	// Dapatkan company_name dari database
 	companyName, err := dbAto.GetCompanyNameByID(s.DB, translationRequest.CompanyID)
 	if err != nil {
@@ -152,9 +147,9 @@ func (s *Server) SaveConversationHandler(w http.ResponseWriter, r *http.Request)
 		Speaker:           userName, // Gunakan userName sebagai Speaker
 		JapaneseText:      japaneseText,
 		EnglishText:       englishText,
-		UserID:            translationRequest.UserID,
+		UserID:            translationRequest.User1ID,
 		CompanyID:         translationRequest.CompanyID,
-		ChatRoomID:        chatRoomID,
+		ChatRoomID:        int(chatRoomID),
 		OriginalMessage:   translationRequest.OriginalMessage,
 		TranslatedMessage: translatedMessage,
 		CreatedAt:         time.Now(),
@@ -171,60 +166,63 @@ func (s *Server) SaveConversationHandler(w http.ResponseWriter, r *http.Request)
 
 	log.Info("Conversation saved successfully")
 
-	// Create TranslationResponse
 	translationResponse := models.TranslationResponse{
 		Conversations: []struct {
 			Speaker           string `json:"speaker"`
 			OriginalMessage   string `json:"original_message"`
 			TranslatedMessage string `json:"translated_message"`
-			CompanyName       string `json:"company_name"` // Pastikan field ini ada dalam struct
+			CompanyName       string `json:"company_name"`
+			ChatRoomID        int    `json:"chat_room_id"`
+			UserID            int    `json:"user_id"` // Perbaikan di sini
 		}{
 			{
 				Speaker:           userName,
 				OriginalMessage:   translationRequest.OriginalMessage,
 				TranslatedMessage: translatedMessage,
-				CompanyName:       companyName, // Menambahkan company_name di sini
+				CompanyName:       companyName,
+				ChatRoomID:        int(chatRoomID),
+				UserID:            translationRequest.User1ID,
 			},
 		},
 	}
-
-	// Send success response
+	
+	// Kirim response
 	w.WriteHeader(http.StatusCreated)
 	w.Header().Set("Content-Type", "application/json")
 	json.NewEncoder(w).Encode(translationResponse)
-
+	
 }
 
-func (s *Server) determineOrCreateChatRoom(user1ID, user2ID int) (int, error) {
-	var chatRoomID int
+// func (s *Server) determineOrCreateChatRoom(user1ID, user2ID int) (int, error) {
+// 	var chatRoomID int
 
-	// Cek apakah chat room sudah ada
-	query := `SELECT id FROM chat_room WHERE (user1_id = ? AND user2ID = ?) OR (user1_id = ? AND user2ID = ?)`
-	err := s.DB.QueryRow(query, user1ID, user2ID, user2ID, user1ID).Scan(&chatRoomID)
+// 	// Cek apakah chat room sudah ada
+// 	query := `SELECT id FROM chat_room WHERE (user1_id = ? AND user2ID = ?) OR (user1_id = ? AND user2ID = ?)`
+// 	err := s.DB.QueryRow(query, user1ID, user2ID, user2ID, user1ID).Scan(&chatRoomID)
 
-	if err == sql.ErrNoRows {
-		// Chat room tidak ada, buat chat room baru
-		insertQuery := `INSERT INTO chat_room (user1_id, user2_id) VALUES (?, ?)`
-		result, err := s.DB.Exec(insertQuery, user1ID, user2ID)
-		if err != nil {
-			return 0, err
-		}
+// 	if err == sql.ErrNoRows {
+// 		// Chat room tidak ada, buat chat room baru
+// 		insertQuery := `INSERT INTO chat_room (user1_id, user2_id) VALUES (?, ?)`
+// 		result, err := s.DB.Exec(insertQuery, user1ID, user2ID)
+// 		if err != nil {
+// 			return 0, err
+// 		}
 
-		// Dapatkan ID chat room yang baru dibuat
-		newChatRoomID, err := result.LastInsertId()
-		if err != nil {
-			return 0, err
-		}
+// 		// Dapatkan ID chat room yang baru dibuat
+// 		newChatRoomID, err := result.LastInsertId()
+// 		if err != nil {
+// 			return 0, err
+// 		}
 
-		return int(newChatRoomID), nil
-	} else if err != nil {
-		// Terjadi error selain ErrNoRows
-		return 0, err
-	}
+// 		return int(newChatRoomID), nil
+// 	} else if err != nil {
+// 		// Terjadi error selain ErrNoRows
+// 		return 0, err
+// 	}
 
-	// Chat room sudah ada, kembalikan ID-nya
-	return chatRoomID, nil
-}
+// 	// Chat room sudah ada, kembalikan ID-nya
+// 	return chatRoomID, nil
+// }
 
 // isJapanese checks if the given text is in Japanese
 // func (s *Server) isJapanese(text string) bool {
@@ -288,7 +286,7 @@ func (s *Server) TranslateMessageHandler(w http.ResponseWriter, r *http.Request)
 	}
 
 	var userName string
-	err = s.DB.QueryRow("SELECT name FROM users WHERE id = ?", translationRequest.UserID).Scan(&userName)
+	err = s.DB.QueryRow("SELECT name FROM users WHERE id = ?", translationRequest.User1ID).Scan(&userName)
 	if err != nil {
 		log.WithError(err).Error("Failed to retrieve user name")
 		http.Error(w, "Failed to retrieve user name", http.StatusInternalServerError)
@@ -303,26 +301,24 @@ func (s *Server) TranslateMessageHandler(w http.ResponseWriter, r *http.Request)
 		return
 	}
 
-	// Membuat objek hasil terjemahan
-	translationResponse := models.TranslationResponse{
-		Conversations: []struct {
-			Speaker           string `json:"speaker"`
-			OriginalMessage   string `json:"original_message"`
-			TranslatedMessage string `json:"translated_message"`
-			CompanyName       string `json:"company_name"`
-		}{
-			{
-				Speaker:           userName, // Dari kode sebelumnya
-				OriginalMessage:   translationRequest.OriginalMessage,
-				TranslatedMessage: translatedMessage,
-				CompanyName:       companyName, // Menambahkan company_name di sini
-			},
-		},
-	}
+	// Inside TranslateMessageHandler
 
-	// Kirim response sukses
-	w.Header().Set("Content-Type", "application/json")
-	json.NewEncoder(w).Encode(translationResponse)
+// Membuat objek hasil terjemahan
+translationResponse := models.TranslationResponseTranslateHandler{
+    Conversations: []models.ConversationDetail{
+        {
+            Speaker:           userName,
+            OriginalMessage:   translationRequest.OriginalMessage,
+            TranslatedMessage: translatedMessage,
+            CompanyName:       companyName,
+        },
+    },
+}
+
+// Kirim response sukses
+w.Header().Set("Content-Type", "application/json")
+json.NewEncoder(w).Encode(translationResponse)
+
 
 }
 
