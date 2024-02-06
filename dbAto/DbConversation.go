@@ -85,7 +85,7 @@ func GetChatRoomsByUserID(db *sql.DB, userID int) ([]models.ChatRoomDetail, erro
     cr.created_at,
     lm.english_text AS last_message_english,
     lm.japanese_text AS last_message_japanese,
-    lm.user_id AS last_message_user_id, -- Gunakan user_id sebagai pengirim pesan terakhir
+    lm.user_id AS last_message_user_id,
     lm.date AS last_message_date
 FROM 
     chat_room cr
@@ -104,16 +104,17 @@ LEFT JOIN (
         chat_room_id, 
         english_text, 
         japanese_text,
-        user_id, -- Menggunakan user_id
-        date, -- Pastikan kolom date diambil dari tabel conversations
-        ROW_NUMBER() OVER(PARTITION BY chat_room_id ORDER BY created_at DESC) as rn
+        user_id,
+        date,
+        ROW_NUMBER() OVER(PARTITION BY chat_room_id ORDER BY date DESC) AS rn
     FROM 
         conversations
 ) lm ON cr.id = lm.chat_room_id AND lm.rn = 1
 WHERE 
     u.id = ?
 ORDER BY 
-    cr.created_at DESC;
+    lm.date DESC, cr.created_at DESC;
+
 
 `
 

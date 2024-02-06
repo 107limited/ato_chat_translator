@@ -4,7 +4,6 @@ import (
 	"ato_chat/dbAto"
 	"ato_chat/models"
 
-
 	_ "github.com/go-sql-driver/mysql"
 	"golang.org/x/crypto/bcrypt"
 )
@@ -13,8 +12,6 @@ func RegisterUser(username, email, password string) error {
 	// Implement logic to insert a new user into the database
 	return nil
 }
-
-
 
 // IsEmailTaken checks if an email address is already registered in the database.
 func IsEmailTaken(email string) bool {
@@ -43,23 +40,23 @@ func HashPassword(password string) (string, error) {
 }
 
 // CreateUser creates a new user record in the database.
-func CreateUser(user models.User) error {
-	db, err := dbAto.OpenDB()
-	if err != nil {
-		return err
-	}
-	defer db.Close()
+// func CreateUser(user models.User) error {
+// 	db, err := dbAto.OpenDB()
+// 	if err != nil {
+// 		return err
+// 	}
+// 	defer db.Close()
 
-	hashedPassword, err := HashPassword(user.Password)
-	if err != nil {
-		return err
-	}
+// 	hashedPassword, err := HashPassword(user.Password)
+// 	if err != nil {
+// 		return err
+// 	}
 
-	_, err = db.Exec("INSERT INTO users (email, password, nama, company_id, role_id) VALUES (?, ?, ?, ?, ?)",
-		user.Email, hashedPassword, user.Name, user.CompanyID, user.RoleID)
+// 	_, err = db.Exec("INSERT INTO users (email, password, nama, company_id, role_id) VALUES (?, ?, ?, ?, ?)",
+// 		user.Email, hashedPassword, user.Name, user.CompanyID, user.RoleID)
 
-	return nil
-}
+// 	return nil
+// }
 
 // AuthenticateUser authenticates a user based on email and password.
 func AuthenticateUser(email, password string) (*models.User, error) {

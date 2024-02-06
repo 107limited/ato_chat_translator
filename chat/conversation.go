@@ -24,23 +24,24 @@ type conversationRepository struct {
 	db *sql.DB
 }
 
-// SaveConversation menyimpan percakapan ke database
 func (cr *conversationRepository) SaveConversation(conversation *models.Conversation) error {
-	query := "INSERT INTO conversations (japanese_text, english_text, user_id, speaker, company_id, chat_room_id, created_at, date) VALUES (?, ?, ?, ?, ?, ?, ?, ?)"
-	result, err := cr.db.Exec(query, conversation.JapaneseText, conversation.EnglishText, conversation.UserID, conversation.Speaker, conversation.CompanyID, conversation.ChatRoomID, conversation.CreatedAt, conversation.Date)
+	// Query untuk menyimpan percakapan baru
+	query := `INSERT INTO conversations (japanese_text, english_text, user_id, speaker, company_id, chat_room_id, created_at, date) VALUES (?, ?, ?, ?, ?, ?, NOW(), ?)`
+	// Gunakan conversation.Date untuk kolom date, yang sudah dalam format milidetik sejak epoch Unix
+	_, err := cr.db.Exec(query, conversation.JapaneseText, conversation.EnglishText, conversation.UserID, conversation.Speaker, conversation.CompanyID, conversation.ChatRoomID, conversation.Date)
 	if err != nil {
-		// Handle error saat penyimpanan ke dalam database
 		return fmt.Errorf("error executing query: %v", err)
 	}
 
-	// Dapatkan ID yang dihasilkan
-	lastInsertID, err := result.LastInsertId()
-	if err != nil {
-		return fmt.Errorf("error getting last insert ID: %v", err)
-	}
+	// Konversi timestamp milidetik ke detik
+	timestampInSeconds := conversation.Date / 1000
 
-	// Atur nilai id pada conversation
-	conversation.ID = int(lastInsertID)
+	// Memperbarui last_message_date di chat_room dengan timestamp dalam detik
+	updateQuery := `UPDATE chat_room SET last_message_date = FROM_UNIXTIME(?) WHERE id = ?`
+	_, err = cr.db.Exec(updateQuery, timestampInSeconds, conversation.ChatRoomID)
+	if err != nil {
+		return fmt.Errorf("error updating last message date in chat_room: %v", err)
+	}
 
 	return nil
 }
@@ -55,7 +56,7 @@ func (cr *conversationRepository) GetAllConversations() ([]*models.Conversation,
 
 	var conversations []*models.Conversation
 	for rows.Next() {
-		
+
 		var dateInt64 sql.NullInt64
 		var conv models.Conversation
 		var get models.GetAllConversations
@@ -64,8 +65,6 @@ func (cr *conversationRepository) GetAllConversations() ([]*models.Conversation,
 		if err != nil {
 			return nil, err
 		}
-
-	
 
 		if dateInt64.Valid {
 			conv.Date = dateInt64.Int64
