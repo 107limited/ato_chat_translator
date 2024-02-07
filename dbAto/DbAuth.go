@@ -70,16 +70,10 @@ func GetAllUsers(db *sql.DB) ([]models.User, error) {
 
 
 
+// IsValidEmail checks if the email has a valid format.
 func IsValidEmail(email string) bool {
-	// Definisikan ekspresi reguler untuk validasi format email
-	// Ekspresi reguler ini memeriksa apakah email memiliki format yang benar
-	// Sesuaikan ekspresi reguler sesuai kebutuhan Anda
 	regex := `^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$`
-
-	// Buat objek regex
 	re := regexp.MustCompile(regex)
-
-	// Gunakan metode MatchString untuk memeriksa apakah email cocok dengan pola ekspresi reguler
 	return re.MatchString(email)
 }
 

@@ -34,6 +34,25 @@ func (s *Server) RegisterUserHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	if !dbAto.IsValidEmail(userData.Email) {
+		http.Error(w, "Invalid email format", http.StatusBadRequest)
+		return
+	}
+	
+	// Periksa apakah email sudah diambil
+	emailTaken, err := dbAto.IsEmailTaken(s.DB, userData.Email)
+	if err != nil {
+		// Gagal melakukan query ke database
+		http.Error(w, "Failed to check email availability: "+err.Error(), http.StatusInternalServerError)
+		return
+	}
+	
+	if emailTaken {
+		// Email sudah diambil
+		http.Error(w, "Email address is already registered", http.StatusConflict)
+		return
+	}
+
 	// Asumsikan fungsi CreateToken sudah ada dan mengembalikan token JWT
 	token, err := jwtforreg.CreateTokenOrSession(userData.Email, userData.CompanyID)
 	if err != nil {
