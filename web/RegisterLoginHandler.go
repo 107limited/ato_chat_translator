@@ -9,6 +9,7 @@ import (
 	"fmt"
 	"log"
 	"strconv"
+	"time"
 
 	"net/http"
 
@@ -16,7 +17,6 @@ import (
 )
 
 func (s *Server) RegisterUserHandler(w http.ResponseWriter, r *http.Request) {
-	// Parse data pendaftaran dari permintaan
 	var userData models.RegistrationValidation
 	decoder := json.NewDecoder(r.Body)
 	if err := decoder.Decode(&userData); err != nil {
@@ -24,129 +24,80 @@ func (s *Server) RegisterUserHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Validasi data pendaftaran
-	if userData.Email == "" || userData.Password == "" {
-		http.Error(w, "Email and password are required fields", http.StatusBadRequest)
+	if userData.Email == "" || userData.Password == "" || userData.CompanyID == 0 {
+		http.Error(w, "Email, password, and company_id are required fields", http.StatusBadRequest)
 		return
 	}
 
-	// Validasi format email
 	if !dbAto.IsValidEmail(userData.Email) {
 		http.Error(w, "Invalid email format", http.StatusBadRequest)
 		return
 	}
-	err := s.DB.Ping()
+
+	// Asumsikan fungsi CreateToken sudah ada dan mengembalikan token JWT
+	token, err := jwtforreg.CreateTokenOrSession(userData.Email, userData.CompanyID)
 	if err != nil {
-		log.Println("Database ping failed:", err)
-		http.Error(w, "Internal server error", http.StatusInternalServerError)
+		http.Error(w, "Failed to create token: "+err.Error(), http.StatusInternalServerError)
 		return
 	}
 
-	emailTaken, err := dbAto.IsEmailTaken(s.DB, userData.Email)
-	// Tangani err dan emailTaken sesuai kebutuhan
-
-	if err != nil {
-		// Handle error, misalnya dengan mengembalikan HTTP 500
-		http.Error(w, "Internal server error", http.StatusInternalServerError)
-		return
-	}
-	if emailTaken {
-		http.Error(w, "Email address is already registered", http.StatusConflict)
-		return
-	}
-
-	// Hash password sebelum menyimpan ke database
-	hashedPassword, err := dbAto.HashPassword(userData.Password)
-	if err != nil {
-		http.Error(w, err.Error(), http.StatusInternalServerError)
-		return
-	}
-
-	// Simpan email, password yang di-hash, dan company_id ke database
-	_, err = s.DB.Exec("INSERT INTO users (email, password, company_id) VALUES (?, ?, ?)",
-		userData.Email, hashedPassword, userData.CompanyID)
-	if err != nil {
-		http.Error(w, "Failed to save user to database: "+err.Error(), http.StatusInternalServerError)
-		return
-	}
-
-	// Buat token JWT (misalnya menggunakan userID yang baru dibuat)
-	token, err := jwtforreg.CreateTokenOrSession(userData.Email)
-	if err != nil {
-		http.Error(w, err.Error(), http.StatusInternalServerError)
-		return
-	}
-
-	// Kirim token serta detail akun yang berhasil didaftarkan sebagai bagian dari respons
 	response := map[string]interface{}{
-		"message": "User registered successfully, complete personal data!",
+		"message": "Registration initiated successfully. Please complete your personal data.",
 		"token":   token,
-		"account": map[string]interface{}{
-			"email":     userData.Email,     // email dari data pendaftaran
-			"companyId": userData.CompanyID, // companyId dari data pendaftaran
-			// Tambahkan informasi lain jika diperlukan
-		},
 	}
 
 	w.Header().Set("Content-Type", "application/json")
-	w.WriteHeader(http.StatusCreated)   // Status 201 menandakan 'Created'
-	json.NewEncoder(w).Encode(response) // Mengirimkan respons dalam format JSON
-
+	w.WriteHeader(http.StatusCreated)
+	json.NewEncoder(w).Encode(response)
 }
 
 func (s *Server) PersonalDataHandler(w http.ResponseWriter, r *http.Request) {
-	// Parse data personal data dari permintaan
-	var personalData models.PersonalData
-	decoder := json.NewDecoder(r.Body)
-	if err := decoder.Decode(&personalData); err != nil {
-		http.Error(w, err.Error(), http.StatusBadRequest)
-		return
-	}
+    var personalData models.PersonalData
+    decoder := json.NewDecoder(r.Body)
+    if err := decoder.Decode(&personalData); err != nil {
+        http.Error(w, err.Error(), http.StatusBadRequest)
+        return
+    }
 
-	// Mendapatkan dan memvalidasi token dari header
-	authToken := r.Header.Get("Authorization") // Sesuaikan dengan cara Anda mengirim token
-	email, _, err := jwt.ValidateTokenOrSession(authToken)
-	if err != nil {
-		http.Error(w, "Invalid token: "+err.Error(), http.StatusUnauthorized)
-		return
-	}
+    authToken := r.Header.Get("Authorization")
+    email, companyID, err := jwt.ValidateTokenOrSession(authToken)
+    if err != nil {
+        http.Error(w, "Invalid token: "+err.Error(), http.StatusUnauthorized)
+        return
+    }
 
+    if personalData.Name == "" || personalData.RoleID == 0 {
+        http.Error(w, "Name and RoleID are required fields", http.StatusBadRequest)
+        return
+    }
+
+    hashedPassword, err := dbAto.HashPassword("temporary_password") // Ensure you handle passwords correctly
+    if err != nil {
+        http.Error(w, "Failed to hash password: "+err.Error(), http.StatusInternalServerError)
+        return
+    }
+
+    // Assuming you've included email, companyID in the personalData struct or obtained them from the token
+    _, err = s.DB.Exec("INSERT INTO users (email, password, company_id, name, role_id) VALUES (?, ?, ?, ?, ?)",
+        email, hashedPassword, companyID, personalData.Name, personalData.RoleID)
+    if err != nil {
+        http.Error(w, "Failed to save user to database: "+err.Error(), http.StatusInternalServerError)
+        return
+    }
+
+    // Here, replace the token generation with dbAto.GenerateTokenAndLogin as previously done
+    token, err := dbAto.GenerateTokenAndLogin(s.DB, email, companyID)
+    if err != nil {
+        http.Error(w, "Failed to generate token and login: "+err.Error(), http.StatusInternalServerError)
+        return
+    }
+	
 	// Dapatkan ID pengguna berdasarkan email dari token
 	userId, err := dbAto.GetUserIDByEmail(s.DB, email)
 	if err != nil {
 		http.Error(w, "Failed to get user ID: "+err.Error(), http.StatusInternalServerError)
 		return
 	}
-
-	// Gunakan email dan companyId sesuai kebutuhan
-
-	// Validasi data personal data
-	if personalData.Name == "" || personalData.RoleID == 0 {
-		http.Error(w, "Name and RoleID are required fields", http.StatusBadRequest)
-		return
-	}
-
-	// Membuat struct User dengan data yang diperlukan
-	user := models.User{
-		Name:   personalData.Name,
-		RoleID: personalData.RoleID,
-	}
-
-	// Update data pengguna dengan name dan role yang baru
-	_, err = s.DB.Exec("UPDATE users SET name = ?, role_id = ? WHERE email = ?",
-		personalData.Name, personalData.RoleID, email) // 'email' didapat dari token
-	if err != nil {
-		http.Error(w, "Failed to update user data: "+err.Error(), http.StatusInternalServerError)
-		return
-	}
-
-	// Di PersonalDataHandler atau RegisterUserHandler setelah sukses menyimpan data pengguna
-	token, err := dbAto.GenerateTokenAndLogin(s.DB, user.Email, user.CompanyID)
-	if err != nil {
-		http.Error(w, err.Error(), http.StatusInternalServerError)
-		return
-	}
-
 	// Mendapatkan companyId dari database
 	companyId, err := dbAto.GetCompanyIDByEmail(s.DB, email)
 	if err != nil {
@@ -312,32 +263,49 @@ func TranslateCompanyIdentifier(identifier string) (string, error) {
 	return "", fmt.Errorf("invalid identifier")
 }
 
-//handler Get User By Company Name 
+// handler Get User By Company Name
 func (s *Server) GetUsersByCompanyIdentifierHandler(w http.ResponseWriter, r *http.Request) {
-    vars := mux.Vars(r)
-    identifier := vars["companyIdentifier"] // Ini bisa berupa ID atau nama
+	vars := mux.Vars(r)
+	identifier := vars["companyIdentifier"] // Ini bisa berupa ID atau nama
 
-    // Terjemahkan identifier ke bentuk yang diinginkan.
-    translatedIdentifier, err := TranslateCompanyIdentifier(identifier)
-    if err != nil {
-        http.Error(w, "Invalid company identifier", http.StatusBadRequest)
-        return
-    }
+	// Terjemahkan identifier ke bentuk yang diinginkan.
+	translatedIdentifier, err := TranslateCompanyIdentifier(identifier)
+	if err != nil {
+		http.Error(w, "Invalid company identifier", http.StatusBadRequest)
+		return
+	}
 
-    var users []models.User
-    if translatedIdentifier == "ATO" {
-        // Lakukan query berdasarkan company_name jika hasil terjemahannya adalah "ATO"
-        users, err = dbAto.GetUsersByCompanyName(s.DB, translatedIdentifier)
-    } else {
-        // Asumsikan hasil terjemahan adalah "107", lakukan query berdasarkan company_id
-        users, err = dbAto.GetUsersByCompanyName(s.DB, translatedIdentifier)
-    }
+	var users []models.User
+	if translatedIdentifier == "ATO" {
+		// Lakukan query berdasarkan company_name jika hasil terjemahannya adalah "ATO"
+		users, err = dbAto.GetUsersByCompanyName(s.DB, translatedIdentifier)
+	} else {
+		// Asumsikan hasil terjemahan adalah "107", lakukan query berdasarkan company_id
+		users, err = dbAto.GetUsersByCompanyName(s.DB, translatedIdentifier)
+	}
 
-    if err != nil {
-        http.Error(w, "Internal Server Error", http.StatusInternalServerError)
-        return
-    }
+	if err != nil {
+		http.Error(w, "Internal Server Error", http.StatusInternalServerError)
+		return
+	}
 
-    w.Header().Set("Content-Type", "application/json")
-    json.NewEncoder(w).Encode(users)
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(users)
+}
+
+func (s *Server) LogoutHandler(w http.ResponseWriter, r *http.Request) {
+	// Set cookie untuk 'auth_token' dengan nilai kosong dan tanggal kadaluarsa di masa lalu
+	http.SetCookie(w, &http.Cookie{
+		Name:     "auth_token",
+		Value:    "",
+		Path:     "/",
+		Expires:  time.Unix(0, 0),
+		HttpOnly: true,
+		Secure:   true,                    // Pastikan ini diaktifkan jika Anda selalu menggunakan HTTPS
+		SameSite: http.SameSiteStrictMode, // Menambahkan SameSite untuk keamanan tambahan
+	})
+
+	// Kirim respons sukses logout
+	w.WriteHeader(http.StatusOK)
+	w.Write([]byte("{\"message\": \"Logout berhasil\"}"))
 }
