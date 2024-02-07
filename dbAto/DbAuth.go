@@ -34,32 +34,40 @@ func GetAllUsers(db *sql.DB) ([]models.User, error) {
     for rows.Next() {
         var (
             u            models.User
-            companyName  sql.NullString // Ganti tipe data string biasa dengan sql.NullString
-            roleName     sql.NullString // Ganti tipe data string biasa dengan sql.NullString
+            companyName  sql.NullString // Untuk menangani nilai NULL pada company_name
+            roleName     sql.NullString // Untuk menangani nilai NULL pada role_name
+            roleID       sql.NullInt64  // Menggunakan sql.NullInt64 untuk menangani nilai NULL pada role_id
+            name         sql.NullString // Menggunakan sql.NullString untuk menangani nilai NULL pada name
         )
-        // Gunakan sql.NullString dan sesuaikan pemanggilan rows.Scan
-        if err := rows.Scan(&u.ID, &u.Email, &u.Password, &u.CompanyID, &u.RoleID, &u.Name, &companyName, &roleName); err != nil {
+        if err := rows.Scan(&u.ID, &u.Email, &u.Password, &u.CompanyID, &roleID, &name, &companyName, &roleName); err != nil {
             return nil, err
         }
-        // Cek apakah nilai companyName dan roleName NULL
-        if companyName.Valid {
-            u.CompanyName = companyName.String
+
+        // Menetapkan nilai ke struktur User dari sql.NullString
+        u.CompanyName = companyName.String
+        u.RoleName = roleName.String
+        if name.Valid {
+            u.Name = name.String // Menetapkan nilai jika name tidak NULL
         } else {
-            u.CompanyName = "" // Tetapkan string kosong jika NULL
+            u.Name = "" // Atau menetapkan string kosong jika name NULL
         }
-        if roleName.Valid {
-            u.RoleName = roleName.String
+        
+        // Menetapkan nilai ke struktur User dari sql.NullString dan sql.NullInt64
+        u.CompanyName = companyName.String
+        u.RoleName = roleName.String
+        if roleID.Valid {
+            u.RoleID = roleID.Int64 // Menetapkan nilai jika roleID tidak NULL
         } else {
-            u.RoleName = "" // Tetapkan string kosong jika NULL
+            u.RoleID = 0 // Atau menetapkan nilai default jika roleID NULL
         }
 
-        // Kosongkan Password untuk tidak mengirimkannya dalam respons
-        u.Password = ""
+        u.Password = "" // Kosongkan Password
         users = append(users, u)
     }
 
     return users, nil
 }
+
 
 
 func IsValidEmail(email string) bool {
