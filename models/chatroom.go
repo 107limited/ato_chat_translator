@@ -9,7 +9,7 @@ type LastMessage struct {
     English  string `json:"english"`
     Japanese string `json:"japanese"`
     UserID   int64  `json:"user_id,omitempty"` // Gunakan int64 jika sesuai dengan skema data Anda
-    Date     string `json:"date"`
+    Date     int64 `json:"date"`
 }
 
 
