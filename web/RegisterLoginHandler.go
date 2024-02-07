@@ -41,10 +41,15 @@ func (s *Server) RegisterUserHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	response := map[string]interface{}{
-		"message": "Registration initiated successfully. Please complete your personal data.",
-		"token":   token,
-	}
+	// Menyiapkan respons dengan informasi akun
+    response := map[string]interface{}{
+        "message": "Registration initiated successfully. Please complete your personal data.",
+        "token":   token,
+        "account": map[string]interface{}{
+            "email":     userData.Email,
+            "company_id": userData.CompanyID, // Asumsikan userData memiliki field CompanyID
+        },
+    }
 
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(http.StatusCreated)
