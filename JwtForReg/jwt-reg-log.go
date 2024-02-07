@@ -15,13 +15,17 @@ type CustomClaims struct {
 	jwt.StandardClaims
 }
 
-func CreateTokenOrSession(email string) (string, error) {
+func CreateTokenOrSession(email string, companyId int) (string, error) {
     // Atur waktu kedaluwarsa untuk token
     expirationTime := time.Now().Add(24 * time.Hour) // Contoh: 24 jam kedaluwarsa
 
-    // Buat klaim dengan email pengguna
+    // Konversi companyId dari int ke string
+    companyIdStr := strconv.Itoa(companyId)
+
+    // Buat klaim dengan email pengguna dan CompanyID sebagai string
     claims := &CustomClaims{
-        Email: email,
+        Email:     email,
+        CompanyID: companyIdStr, // CompanyID sebagai string
         StandardClaims: jwt.StandardClaims{
             ExpiresAt: expirationTime.Unix(),
         },
@@ -38,6 +42,7 @@ func CreateTokenOrSession(email string) (string, error) {
 
     return tokenString, nil
 }
+
 
 func ValidateTokenOrSession(tokenString string) (email string, companyId int, err error) {
 	claims := &CustomClaims{}

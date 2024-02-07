@@ -19,6 +19,8 @@ func (s *Server) initializeRoutes() {
 	// Get User By Company ID
 	s.Router.HandleFunc("/api/users/company/{companyId}", s.GetUsersByCompanyIdHandler).Methods("GET")
 	s.Router.HandleFunc("/api/users/{companyIdentifier}", s.GetUsersByCompanyIdentifierHandler).Methods("GET")
+	// Tambahkan rute untuk Logout
+	s.Router.HandleFunc("/api/logout", s.LogoutHandler).Methods("POST")
 
 	// // Tambahkan rute untuk GetAllRolesHandler
 	s.Router.HandleFunc("/api/roles", s.CreateRoleHandler).Methods("POST")
