@@ -141,15 +141,10 @@ ORDER BY
 		if err != nil {
 			return nil, fmt.Errorf("error parsing created_at timestamp: %v", err)
 		}
-		var formattedDate string
+		// Menetapkan nilai default menjadi 0 jika last_message_date adalah NULL
+		var messageDate int64 = 0 // Menetapkan default value
 		if lastMessageDate.Valid {
-			// Konversi Unix timestamp ke time.Time
-			timestamp := time.Unix(lastMessageDate.Int64, 0)
-			// Format tanggal sesuai kebutuhan Anda
-			formattedDate = timestamp.Format("2006-01-02 15:04:05") // Contoh format
-		} else {
-			// Tentukan bagaimana Anda ingin menangani NULL, bisa dengan memberi nilai default atau kosong
-			formattedDate = "No date available" // Atau biarkan kosong
+			messageDate = lastMessageDate.Int64 // Jika tidak NULL, gunakan nilai dari database
 		}
 
 		if lastMessageUser.Valid {
@@ -175,14 +170,14 @@ ORDER BY
 			userID = 0 // Atau nilai default yang diinginkan ketika user_id adalah NULL
 		}
 
-		room.LastMessage.Date = formattedDate
+		room.LastMessage.Date = messageDate
 
 		// Sekarang, gunakan userID yang sudah diolah saat membangun LastMessage
 		room.LastMessage = models.LastMessage{
 			English:  lastMessageEnglish.String,
 			Japanese: lastMessageJapanese.String,
 			UserID:   userID, // Gunakan userID yang sudah diolah
-			Date:     formattedDate,
+			Date:     messageDate,
 		}
 
 		rooms = append(rooms, room)
