@@ -212,13 +212,43 @@ WHERE c.company_name = ?
 
     for rows.Next() {
         var u models.User
-        // Sesuaikan rows.Scan untuk mencakup company_name dan role_name.
-        if err := rows.Scan(&u.ID, &u.Email, &u.Password, &u.CompanyID, &u.RoleID, &u.Name, &u.CompanyName, &u.RoleName); err != nil {
+        var roleID sql.NullInt64  // Untuk role_id yang mungkin NULL
+        var name sql.NullString   // Untuk name yang mungkin NULL
+        var roleName sql.NullString  // Tambahkan untuk role_name yang mungkin NULL
+    
+        // Sesuaikan pemanggilan rows.Scan untuk menyertakan sql.NullString untuk role_name
+        if err := rows.Scan(&u.ID, &u.Email, &u.Password, &u.CompanyID, &roleID, &name, &u.CompanyName, &roleName); err != nil {
             return nil, err
         }
-        u.Password = "" // Kosongkan password untuk keamanan
+    
+        u.Password = ""  // Kosongkan password untuk keamanan
+    
+        // Handle nilai NULL untuk role_id
+        if roleID.Valid {
+            u.RoleID = roleID.Int64
+        } else {
+            u.RoleID = 0  // Atau nilai default lain yang sesuai
+        }
+    
+        // Handle nilai NULL untuk name
+        if name.Valid {
+            u.Name = name.String
+        } else {
+            u.Name = ""  // Atau nilai default lain yang sesuai
+        }
+    
+        // Handle nilai NULL untuk role_name
+        if roleName.Valid {
+            u.RoleName = roleName.String
+        } else {
+            u.RoleName = ""  // Atau nilai default lain yang sesuai
+        }
+    
         users = append(users, u)
     }
+    
+    
+    
 
     return users, nil
 }

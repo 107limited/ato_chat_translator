@@ -287,13 +287,20 @@ func (s *Server) GetUsersByCompanyIdHandler(w http.ResponseWriter, r *http.Reque
 
 // Fungsi helper untuk menerjemahkan antara companyName dan companyId.
 func TranslateCompanyIdentifier(identifier string) (string, error) {
-	// Misalnya, Anda memiliki mapping sederhana ini:
-	if identifier == "107" {
-		return "ATO", nil // Misalkan "ATO" adalah nama untuk company_id 107
-	} else if identifier == "ATO" {
-		return "107", nil // Misalkan Anda ingin menerjemahkan "ATO" menjadi ID 107
-	}
-	return "", fmt.Errorf("invalid identifier")
+    // Misalnya, Anda memiliki mapping yang lebih kompleks atau query database untuk mendapatkan data yang sesuai.
+    // Contoh sederhana dengan mapping hard-coded:
+    mapping := map[string]string{
+        "107": "ATO",
+        "ATO": "107",
+    }
+
+    // Cek apakah identifier ada dalam mapping.
+    if translated, ok := mapping[identifier]; ok {
+        return translated, nil
+    }
+
+    // Jika identifier tidak dikenali, kembalikan error yang lebih informatif.
+    return "", fmt.Errorf("invalid identifier: %s is not recognized as a valid company name or ID", identifier)
 }
 
 // handler Get User By Company Name
@@ -318,9 +325,11 @@ func (s *Server) GetUsersByCompanyIdentifierHandler(w http.ResponseWriter, r *ht
 	}
 
 	if err != nil {
+		log.Printf("Error getting users by company identifier: %v", err) // Tambahkan ini
 		http.Error(w, "Internal Server Error", http.StatusInternalServerError)
 		return
 	}
+	
 
 	w.Header().Set("Content-Type", "application/json")
 	json.NewEncoder(w).Encode(users)
