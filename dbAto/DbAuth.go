@@ -9,12 +9,14 @@ import (
 	"ato_chat/models"
 	"database/sql"
 	"fmt"
-	"regexp"
+	
 
 	_ "github.com/go-sql-driver/mysql"
 	"golang.org/x/crypto/bcrypt"
 )
 
+
+// Get All Users 
 func GetAllUsers(db *sql.DB) ([]models.User, error) {
     var users []models.User
 
@@ -70,23 +72,7 @@ func GetAllUsers(db *sql.DB) ([]models.User, error) {
 
 
 
-// IsValidEmail checks if the email has a valid format.
-func IsValidEmail(email string) bool {
-	regex := `^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$`
-	re := regexp.MustCompile(regex)
-	return re.MatchString(email)
-}
 
-// IsEmailTaken checks if an email address is already registered in the database.
-func IsEmailTaken(db *sql.DB, email string) (bool, error) {
-	var count int
-	err := db.QueryRow("SELECT COUNT(*) FROM users WHERE email = ?", email).Scan(&count)
-	if err != nil {
-		return false, err
-	}
-
-	return count > 0, nil
-}
 
 // HashPassword hashes a password using bcrypt.
 func HashPassword(password string) (string, error) {
