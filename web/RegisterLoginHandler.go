@@ -75,6 +75,8 @@ func (s *Server) RegisterUserHandler(w http.ResponseWriter, r *http.Request) {
 	json.NewEncoder(w).Encode(response)
 }
 
+// Personal Data Handler
+
 func (s *Server) PersonalDataHandler(w http.ResponseWriter, r *http.Request) {
     var personalData models.PersonalData
     decoder := json.NewDecoder(r.Body)
@@ -90,10 +92,10 @@ func (s *Server) PersonalDataHandler(w http.ResponseWriter, r *http.Request) {
         return
     }
 
-    if personalData.Name == "" || personalData.RoleID == 0 {
-        http.Error(w, "Name and RoleID are required fields", http.StatusBadRequest)
-        return
-    }
+    // if personalData.Name == "" || personalData.RoleID == 0 {
+    //     http.Error(w, "Name and RoleID are required fields", http.StatusBadRequest)
+    //     return
+    // }
 
     hashedPassword, err := dbAto.HashPassword("temporary_password") // Ensure you handle passwords correctly
     if err != nil {
@@ -101,13 +103,20 @@ func (s *Server) PersonalDataHandler(w http.ResponseWriter, r *http.Request) {
         return
     }
 
-    // Assuming you've included email, companyID in the personalData struct or obtained them from the token
-    _, err = s.DB.Exec("INSERT INTO users (email, password, company_id, name, role_id) VALUES (?, ?, ?, ?, ?)",
-        email, hashedPassword, companyID, personalData.Name, personalData.RoleID)
-    if err != nil {
-        http.Error(w, "Failed to save user to database: "+err.Error(), http.StatusInternalServerError)
-        return
-    }
+    roleID, err := dbAto.CheckRoleExistsOrCreate(s.DB, personalData.RoleName)
+if err != nil {
+    http.Error(w, "Failed to process role: "+err.Error(), http.StatusInternalServerError)
+    return
+}
+
+// Lanjutkan dengan memasukkan atau memperbarui data pengguna menggunakan roleID yang diperoleh
+_, err = s.DB.Exec("INSERT INTO users (email, password, company_id, name, role_id) VALUES (?, ?, ?, ?, ?)",
+    email, hashedPassword, companyID, personalData.Name, roleID)
+if err != nil {
+    http.Error(w, "Failed to save user to database: "+err.Error(), http.StatusInternalServerError)
+    return
+}
+
 
     // Here, replace the token generation with dbAto.GenerateTokenAndLogin as previously done
     token, err := dbAto.GenerateTokenAndLogin(s.DB, email, companyID)
@@ -143,7 +152,7 @@ func (s *Server) PersonalDataHandler(w http.ResponseWriter, r *http.Request) {
 		"account": map[string]interface{}{
 			"id":           userId,              // ID pengguna yang berhasil diupdate
 			"name":         personalData.Name,   // Nama dari data personal
-			"role_id":      personalData.RoleID, // RoleID dari data personal
+			"role_name":      personalData.RoleName, // Gunakan freetext untuk nama role
 			"company_name": companyName,         // Nama perusahaan dari company_id
 		},
 	}
