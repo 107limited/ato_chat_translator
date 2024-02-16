@@ -1,8 +1,7 @@
 package jwtforreg
 
 import (
-	"errors"
-	"strconv"
+	
 	"time"
 
 	"github.com/dgrijalva/jwt-go"
@@ -10,62 +9,59 @@ import (
 var jwtKey = []byte("your_secret_key") // Ganti dengan kunci rahasia Anda
 
 type CustomClaims struct {
-	Email     string `json:"email"`
-	CompanyID string `json:"company_id"`
+	Email             string `json:"email"`
+	CompanyID         int    `json:"company_id"`
+	HashedPasswordKey string `json:"hashed_password_key"`
 	jwt.StandardClaims
 }
 
-func CreateTokenOrSession(email string, companyId int) (string, error) {
-    // Atur waktu kedaluwarsa untuk token
-    expirationTime := time.Now().Add(24 * time.Hour) // Contoh: 24 jam kedaluwarsa
+func CreateTokenOrSessionWithHashedPasswordKey(email string, companyID int, hashedPasswordKey string) (string, error) {
+	// Define your secret key, this should be in an environment variable or configuration file
+	var jwtKey = []byte("your_secret_key")
 
-    // Konversi companyId dari int ke string
-    companyIdStr := strconv.Itoa(companyId)
+	// Set expiration time for the token
+	expirationTime := time.Now().Add(24 * time.Hour)
 
-    // Buat klaim dengan email pengguna dan CompanyID sebagai string
-    claims := &CustomClaims{
-        Email:     email,
-        CompanyID: companyIdStr, // CompanyID sebagai string
-        StandardClaims: jwt.StandardClaims{
-            ExpiresAt: expirationTime.Unix(),
-        },
-    }
+	// Create the JWT claims, which includes the email, companyID and the hashedPasswordKey alongside the expiration time
+	claims := &CustomClaims{
+		Email:             email,
+		CompanyID:         companyID,
+		HashedPasswordKey: hashedPasswordKey,
+		StandardClaims: jwt.StandardClaims{
+			ExpiresAt: expirationTime.Unix(),
+		},
+	}
 
-    // Buat token dengan klaim yang telah ditetapkan
-    token := jwt.NewWithClaims(jwt.SigningMethodHS256, claims)
+	// Declare the token with the algorithm used for signing, and the claims
+	token := jwt.NewWithClaims(jwt.SigningMethodHS256, claims)
 
-    // Tandatangani token dengan kunci rahasia Anda
-    tokenString, err := token.SignedString([]byte("your_secret_key")) // Ganti "your_secret_key" dengan kunci rahasia yang sesungguhnya
-    if err != nil {
-        return "", err
-    }
+	// Create the JWT string
+	tokenString, err := token.SignedString(jwtKey)
+	if err != nil {
+		return "", err
+	}
 
-    return tokenString, nil
+	return tokenString, nil
 }
 
 
-func ValidateTokenOrSession(tokenString string) (email string, companyId int, err error) {
+
+func ValidateTokenAndGetHashedPasswordKey(tokenString string) (string, int, string, error) {
+	// Initialize a new instance of `Claims`
 	claims := &CustomClaims{}
 
+	// Parse the JWT string and store the result in `claims`.
 	token, err := jwt.ParseWithClaims(tokenString, claims, func(token *jwt.Token) (interface{}, error) {
 		return jwtKey, nil
 	})
 
-	if err != nil {
-		return "", 0, err
+	// Check if token is valid
+	if claims, ok := token.Claims.(*CustomClaims); ok && token.Valid {
+		// Return the extracted info from the token
+		return claims.Email, claims.CompanyID, claims.HashedPasswordKey, nil
+	} else {
+		return "", 0, "", err
 	}
-
-	if !token.Valid {
-		return "", 0, errors.New("invalid token")
-	}
-
-	email = claims.Email
-	companyId, err = strconv.Atoi(claims.CompanyID) // Konversi kembali ke integer
-	if err != nil {
-		return "", 0, err // Jika konversi gagal, kembalikan error
-	}
-
-	return email, companyId, nil
 }
 
 
