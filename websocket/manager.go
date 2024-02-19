@@ -1,7 +1,7 @@
-
 package websocket
 
 import (
+	"log"
 	"sync"
 
 	"github.com/gorilla/websocket"
@@ -11,6 +11,8 @@ import (
 type ConnectionManager struct {
 	Connections map[*websocket.Conn]struct{}
 	mu          sync.Mutex
+	// Map room ID ke daftar koneksi
+	Rooms map[string]map[*websocket.Conn]struct{}
 }
 
 // NewConnectionManager membuat instance baru dari ConnectionManager.
@@ -33,3 +35,16 @@ func (cm *ConnectionManager) RemoveConnection(conn *websocket.Conn) {
 	defer cm.mu.Unlock()
 	delete(cm.Connections, conn)
 }
+
+func (cm *ConnectionManager) BroadcastToRoom(roomID string, message []byte) error {
+	cm.mu.Lock()
+	defer cm.mu.Unlock()
+	for conn := range cm.Rooms[roomID] {
+		if err := conn.WriteMessage(websocket.TextMessage, message); err != nil {
+			log.Printf("Error broadcasting to room: %v", err)
+			return err
+		}
+	}
+	return nil
+}
+

@@ -5,6 +5,7 @@ import (
 	"ato_chat/config"
 	"ato_chat/translation"
 	"ato_chat/web"
+	"ato_chat/websocket"
 	"database/sql"
 	"fmt"
 
@@ -43,11 +44,6 @@ func main() {
 	}
 	defer db.Close()
 
-	err = db.Ping()
-	if err != nil {
-		log.Fatalf("Error connecting to database: %v\n", err)
-	}
-
 	// Attempt to ping the database to check the connection
 	err = db.Ping()
 	if err != nil {
@@ -66,13 +62,33 @@ func main() {
 
 	chatRoomHandler := web.NewChatRoomHandler(db)
 
+	// Assuming chat.NewConversationRepository and websocket.NewConnectionManager are correctly implemented
+    repo := chat.NewConversationRepository(db) // Creates a new instance of the conversation repository
+    cm := websocket.NewConnectionManager()     // Creates a new instance of the connection manager
+
+    // Initialize ConversationService with the repo and connection manager
+    cs := websocket.NewConversationService(repo, cm)
+
+	
+
 	// Create HTTP server
-	server := web.NewServer(db, conversationRepo, gpt4Translator, chatRoomHandler)
+	server := web.NewServer(db, conversationRepo, gpt4Translator, chatRoomHandler, cs)
+	server.ConnectionManager = websocket.NewConnectionManager() // Inisialisasi ConnectionManager di sini
 
 	// Set log format as text formatter with full timestamp
 	log.SetFormatter(&log.TextFormatter{
 		FullTimestamp: true,
 	})
+
+	
+	
+	conversationRepo = chat.NewConversationRepository(db)
+    connectionManager := websocket.NewConnectionManager()
+    conversationService := websocket.NewConversationService(conversationRepo, connectionManager)
+    wsHandler := websocket.HandleWebSocket(conversationService)
+    
+    // Assuming `server.Router` is correctly set up elsewhere:
+    server.Router.HandleFunc("/ws", wsHandler)
 
 	// Get the server port from the environment or .env file
 	port := os.Getenv("PORT_SERVER")
@@ -87,4 +103,3 @@ func main() {
 		handlers.AllowedHeaders([]string{"X-Requested-With", "Content-Type", "Authorization"}),
 	)(server.Router)))
 }
-

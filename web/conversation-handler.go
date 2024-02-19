@@ -6,6 +6,7 @@ import (
 	"ato_chat/jwt"
 	"ato_chat/models"
 	"ato_chat/translation"
+	"ato_chat/websocket"
 	"database/sql"
 	"encoding/json"
 	"fmt"
@@ -20,23 +21,25 @@ import (
 )
 
 type Server struct {
-	DB               *sql.DB
-	Router           *mux.Router
-	ConversationRepo chat.ConversationRepository
-	GPT4Translator   translation.Translator
-	ChatRoomHandler  *ChatRoomHandler
+	DB                  *sql.DB
+	Router              *mux.Router
+	ConversationRepo    chat.ConversationRepository
+	GPT4Translator      translation.Translator
+	ChatRoomHandler     *ChatRoomHandler
+	ConnectionManager   *websocket.ConnectionManager
+	ConversationService *websocket.ConversationService // Add this line
 }
 
-// Konstruktor untuk membuat instance baru dari Server dengan ChatRoomHandler
-func NewServer(db *sql.DB, conversationRepo chat.ConversationRepository, gpt4Translator translation.Translator, chatRoomHandler *ChatRoomHandler) *Server {
+func NewServer(db *sql.DB, repo chat.ConversationRepository, translator translation.Translator, chatRoomHandler *ChatRoomHandler, cs *websocket.ConversationService) *Server {
 	server := &Server{
-		DB:               db,
-		Router:           mux.NewRouter(),
-		ConversationRepo: conversationRepo,
-		GPT4Translator:   gpt4Translator,
-		ChatRoomHandler:  chatRoomHandler,
+		DB:                  db,
+		Router:              mux.NewRouter(),
+		ConversationRepo:    repo,
+		GPT4Translator:      translator,
+		ChatRoomHandler:     chatRoomHandler,
+		ConversationService: cs, // Initialize this field
 	}
-	server.initializeRoutes() // Inisialisasi rute setelah semua handler siap
+	server.initializeRoutes() // Initialize routes after all handlers are ready
 	return server
 }
 
@@ -164,7 +167,24 @@ func (s *Server) SaveConversationHandler(w http.ResponseWriter, r *http.Request)
 		return
 	}
 
-	log.Info("Conversation saved successfully")
+	// Buat pesan yang akan di-broadcast ke klien WebSocket.
+	messageToBroadcast := websocket.Message{
+		RoomID:  fmt.Sprintf("%d", chatRoomID), // Mengkonversi int64 ke string.
+		Content: translatedMessage,             // Atau pesan yang ingin Anda broadcast.
+		Sender:  translationRequest.User1ID,    // Pastikan ini sesuai dengan tipe data di struktur Message.
+	}
+
+	// Encode pesan menjadi JSON.
+	messageBytes, err := json.Marshal(messageToBroadcast)
+	if err != nil {
+		log.Printf("Failed to encode message for broadcasting: %v", err)
+		http.Error(w, "Internal server error", http.StatusInternalServerError)
+		return
+	}
+
+	// Lakukan broadcast pesan ke room yang sesuai.
+	s.ConnectionManager.BroadcastToRoom(fmt.Sprintf("%d", chatRoomID), messageBytes)
+	log.Info("Conversation saved and broadcasted successfully")
 
 	translationResponse := models.TranslationResponse{
 		Conversations: []struct {
@@ -185,12 +205,12 @@ func (s *Server) SaveConversationHandler(w http.ResponseWriter, r *http.Request)
 			},
 		},
 	}
-	
-	// Kirim response
-	w.WriteHeader(http.StatusCreated)
-	w.Header().Set("Content-Type", "application/json")
-	json.NewEncoder(w).Encode(translationResponse)
-	
+
+	// Kirim response ke HTTP client.
+    w.WriteHeader(http.StatusCreated)
+    w.Header().Set("Content-Type", "application/json")
+    json.NewEncoder(w).Encode(translationResponse)
+
 }
 
 // func (s *Server) determineOrCreateChatRoom(user1ID, user2ID int) (int, error) {
@@ -303,22 +323,21 @@ func (s *Server) TranslateMessageHandler(w http.ResponseWriter, r *http.Request)
 
 	// Inside TranslateMessageHandler
 
-// Membuat objek hasil terjemahan
-translationResponse := models.TranslationResponseTranslateHandler{
-    Conversations: []models.ConversationDetail{
-        {
-            Speaker:           userName,
-            OriginalMessage:   translationRequest.OriginalMessage,
-            TranslatedMessage: translatedMessage,
-            CompanyName:       companyName,
-        },
-    },
-}
+	// Membuat objek hasil terjemahan
+	translationResponse := models.TranslationResponseTranslateHandler{
+		Conversations: []models.ConversationDetail{
+			{
+				Speaker:           userName,
+				OriginalMessage:   translationRequest.OriginalMessage,
+				TranslatedMessage: translatedMessage,
+				CompanyName:       companyName,
+			},
+		},
+	}
 
-// Kirim response sukses
-w.Header().Set("Content-Type", "application/json")
-json.NewEncoder(w).Encode(translationResponse)
-
+	// Kirim response sukses
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(translationResponse)
 
 }
 
