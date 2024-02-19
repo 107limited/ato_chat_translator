@@ -1,7 +1,18 @@
 package web
 
+import (
+	"ato_chat/websocket"
+	"net/http"
+)
+
 // initializeRoutes mengatur rute-rute untuk server
 func (s *Server) initializeRoutes() {
+
+	// Setup WebSocket route
+	s.Router.HandleFunc("/ws", func(w http.ResponseWriter, r *http.Request) {
+		websocket.HandleWebSocket(s.ConversationService)(w, r)
+	}).Methods("GET")
+
 	// // Rute yang sudah ada
 	s.Router.HandleFunc("/api/conversations", s.SaveConversationHandler).Methods("POST")
 	s.Router.HandleFunc("/api/conversations", s.GetAllConversationsHandler).Methods("GET")
