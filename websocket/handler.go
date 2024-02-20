@@ -14,38 +14,49 @@ import (
 )
 
 var upgrader = websocket.Upgrader{
-    ReadBufferSize:  1024,
-    WriteBufferSize: 1024,
-    CheckOrigin: func(r *http.Request) bool {
-        return true
-    },
+	ReadBufferSize:  1024,
+	WriteBufferSize: 1024,
+	CheckOrigin: func(r *http.Request) bool {
+		return true
+	},
 }
 
-func HandleWebSocket(w http.ResponseWriter, r *http.Request) {
-    // Upgrade HTTP request ke koneksi WebSocket
-    conn, err := upgrader.Upgrade(w, r, nil)
-    if err != nil {
-        log.Error("Upgrade to websocket failed:", err)
-        return
-    }
-    defer conn.Close()
-
-    for {
-        messageType, p, err := conn.ReadMessage()
+// Adjusted to accept ConversationService
+func HandleWebSocket(cs *ConversationService) http.HandlerFunc {
+    return func(w http.ResponseWriter, r *http.Request) {
+        conn, err := upgrader.Upgrade(w, r, nil)
         if err != nil {
-            log.Warn("read:", err)
-            break
+            log.Println("failed to upgrade to websocket:", err)
+            return
         }
-        log.Printf("recv: %s", p)
+        defer conn.Close()
 
-        // Echo pesan yang diterima kembali ke klien
-        err = conn.WriteMessage(messageType, p)
-        if err != nil {
-            log.Warn("write:", err)
-            break
+        for {
+            _, p, err := conn.ReadMessage()
+            if err != nil {
+                log.Println("error reading websocket message:", err)
+                break
+            }
+
+            // Logic to extract conversation details from message `p` and create a models.Conversation object
+            var conv models.Conversation
+            // Assuming `p` is JSON that can be unmarshaled into a models.Conversation
+            err = json.Unmarshal(p, &conv)
+            if err != nil {
+                log.Println("error unmarshaling message:", err)
+                continue // or handle error differently
+            }
+
+            // Use ConversationService to save and broadcast the message
+            err = cs.SaveAndBroadcast(conv)
+            if err != nil {
+                log.Println("error saving and broadcasting message:", err)
+                // Decide how to handle the error; continue to read next messages
+            }
         }
     }
 }
+
 // MessageFormat mewakili format pesan yang Anda harapkan melalui WebSocket
 type MessageFormat struct {
 	RoomID  string `json:"roomID"`
@@ -95,4 +106,3 @@ func GetRoomIDFromMessage(p []byte) (string, error) {
 	}
 	return msg.RoomID, nil
 }
-
