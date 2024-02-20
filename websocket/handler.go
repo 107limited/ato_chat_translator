@@ -76,9 +76,10 @@ func HandleWebSocket(cs *ConversationService) http.HandlerFunc {
 				log.Println("read:", err)
 				break
 			}
-			log.Printf("%v", p)
-
+            
 			var conv models.Conversation
+			log.Printf("%v", json.Unmarshal(p, &conv))
+            
 			err = json.Unmarshal(p, &conv)
 			if err != nil {
 				log.Printf("Error unmarshaling message: %v, message: %s", err, string(p))
