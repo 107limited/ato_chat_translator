@@ -14,9 +14,14 @@ import (
 )
 
 var upgrader = websocket.Upgrader{
-	ReadBufferSize:  1024,
-	WriteBufferSize: 1024,
+    ReadBufferSize:  1024,
+    WriteBufferSize: 1024,
+    CheckOrigin: func(r *http.Request) bool {
+        // Bisa disesuaikan dengan kebutuhan validasi origin
+        return true // Mengizinkan semua origin
+    },
 }
+
 
 // MessageFormat mewakili format pesan yang Anda harapkan melalui WebSocket
 type MessageFormat struct {
@@ -42,8 +47,6 @@ func NewConversationService(repo chat.ConversationRepository, cm *ConnectionMana
         cm: cm,
     }
 }
-
-
 
 
 func (cs *ConversationService) SaveAndBroadcast(conv models.Conversation) error {
@@ -74,9 +77,11 @@ func (cs *ConversationService) SaveAndBroadcast(conv models.Conversation) error 
 // Adjusted to accept ConversationService
 func HandleWebSocket(cs *ConversationService) http.HandlerFunc {
     return func(w http.ResponseWriter, r *http.Request) {
+        log.Printf("Trying to upgrade to websocket with Headers: %+v", r.Header) // Log untuk debug
         conn, err := upgrader.Upgrade(w, r, nil)
         if err != nil {
-            log.Println("failed to upgrade to websocket:", err)
+            log.Errorf("Failed to upgrade to websocket: %v, with headers: %v", err, r.Header)
+            http.Error(w, "Failed to upgrade to websocket", http.StatusBadRequest) // Mengembalikan response error
             return
         }
         defer conn.Close()
@@ -84,25 +89,22 @@ func HandleWebSocket(cs *ConversationService) http.HandlerFunc {
         for {
             _, p, err := conn.ReadMessage()
             if err != nil {
-                log.Println("error reading websocket message:", err)
-                break
+                log.Errorf("Error reading websocket message: %v", err)
+                break // Keluar dari loop jika ada error
             }
 
-            // Logic to extract conversation details from message `p` and create a models.Conversation object
             var conv models.Conversation
-            // Assuming `p` is JSON that can be unmarshaled into a models.Conversation
             err = json.Unmarshal(p, &conv)
             if err != nil {
-                log.Println("error unmarshaling message:", err)
-                continue // or handle error differently
+                log.Errorf("Error unmarshaling message: %v, with payload: %s", err, string(p))
+                continue // Lanjutkan ke pesan berikutnya
             }
 
-            // Use ConversationService to save and broadcast the message
             err = cs.SaveAndBroadcast(conv)
             if err != nil {
-                log.Println("error saving and broadcasting message:", err)
-                // Decide how to handle the error; continue to read next messages
+                log.Errorf("Error saving and broadcasting message: %v, with conversation: %+v", err, conv)
             }
         }
     }
 }
+
