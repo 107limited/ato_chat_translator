@@ -21,39 +21,28 @@ var upgrader = websocket.Upgrader{
     },
 }
 
-// Adjusted to accept ConversationService
-func HandleWebSocket(cs *ConversationService) http.HandlerFunc {
-    return func(w http.ResponseWriter, r *http.Request) {
-        // Log semua header yang diterima untuk debugging
-        log.Printf("Received headers: %+v", r.Header)
+func HandleWebSocket(w http.ResponseWriter, r *http.Request) {
+    // Upgrade HTTP request ke koneksi WebSocket
+    conn, err := upgrader.Upgrade(w, r, nil)
+    if err != nil {
+        log.Error("Upgrade to websocket failed:", err)
+        return
+    }
+    defer conn.Close()
 
-        conn, err := upgrader.Upgrade(w, r, nil)
+    for {
+        messageType, p, err := conn.ReadMessage()
         if err != nil {
-            log.Errorf("Failed to upgrade to websocket: %v", err)
-            // Jangan panggil http.Error setelah ini, karena upgrader.Upgrade sudah menulis ke header
-            return
+            log.Warn("read:", err)
+            break
         }
+        log.Printf("recv: %s", p)
 
-        defer conn.Close()
-
-        for {
-            _, p, err := conn.ReadMessage()
-            if err != nil {
-                log.Errorf("Error reading websocket message: %v", err)
-                break // Keluar dari loop jika ada error
-            }
-
-            var conv models.Conversation
-            err = json.Unmarshal(p, &conv)
-            if err != nil {
-                log.Errorf("Error unmarshaling message: %v, with payload: %s", err, string(p))
-                continue // Lanjutkan ke pesan berikutnya
-            }
-
-            err = cs.SaveAndBroadcast(conv)
-            if err != nil {
-                log.Errorf("Error saving and broadcasting message: %v, with conversation: %+v", err, conv)
-            }
+        // Echo pesan yang diterima kembali ke klien
+        err = conn.WriteMessage(messageType, p)
+        if err != nil {
+            log.Warn("write:", err)
+            break
         }
     }
 }
