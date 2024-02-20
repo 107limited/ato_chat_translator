@@ -1,98 +1,95 @@
-// File: websocket/handler.go
+// File: handler.go
 package websocket
 
 import (
-	"ato_chat/chat"
-	"ato_chat/models"
-	"encoding/json"
-	"fmt"
-	"net/http"
+    "ato_chat/chat"
+    "ato_chat/models"
+    "encoding/json"
+    "fmt"
+    "log"
+    "net/http"
 
-	log "github.com/sirupsen/logrus"
-
-	"github.com/gorilla/websocket"
+    "github.com/gorilla/websocket"
 )
 
 var upgrader = websocket.Upgrader{
-	ReadBufferSize:  1024,
-	WriteBufferSize: 1024,
-	CheckOrigin: func(r *http.Request) bool {
-		return true
-	},
+    ReadBufferSize:  1024,
+    WriteBufferSize: 1024,
+    CheckOrigin: func(r *http.Request) bool {
+        return true
+    },
 }
 
-func HandleWebSocket(w http.ResponseWriter, r *http.Request) {
-	// Upgrade HTTP request ke koneksi WebSocket
-	conn, err := upgrader.Upgrade(w, r, nil) 
-	if err != nil {
-		log.Error("Upgrade to websocket failed:", err)
-		return
-	}
-	defer conn.Close()
-
-	for {
-		messageType, p, err := conn.ReadMessage()
-		if err != nil {
-			log.Warn("read:", err)
-			break
-		}
-		log.Printf("recv: %s", p)
-
-		// Echo pesan yang diterima kembali ke klien
-		err = conn.WriteMessage(messageType, p)
-		if err != nil {
-			log.Warn("write:", err)
-			break
-		}
-	}
-}
-
-// MessageFormat mewakili format pesan yang Anda harapkan melalui WebSocket
 type MessageFormat struct {
-	RoomID  string `json:"roomID"`
-	Message string `json:"message"`
-}
-
-type Message struct {
-	RoomID  string `json:"roomID"`  // Identifies the chat room
-	Content string `json:"content"` // The message content
-	Sender  int    `json:"sender"`  // The ID of the user sending the message
-	// Add any additional fields as needed
+    RoomID  string `json:"roomID"`
+    Message string `json:"message"`
 }
 
 type ConversationService struct {
-	repo chat.ConversationRepository
-	cm   *ConnectionManager
+    repo chat.ConversationRepository
+    cm   *ConnectionManager
 }
 
 func NewConversationService(repo chat.ConversationRepository, cm *ConnectionManager) *ConversationService {
-	return &ConversationService{
-		repo: repo,
-		cm:   cm,
-	}
+    return &ConversationService{
+        repo: repo,
+        cm:   cm,
+    }
 }
 
 func (cs *ConversationService) SaveAndBroadcast(conv models.Conversation) error {
-	// Save the conversation
-	err := cs.repo.SaveConversation(&conv)
-	if err != nil {
-		return err
-	}
+    // Simpan percakapan
+    err := cs.repo.SaveConversation(&conv)
+    if err != nil {
+        return err
+    }
 
-	// Siarkan pesan ke room
-	roomID := fmt.Sprintf("%d", conv.ChatRoomID)
-	messageBytes, _ := json.Marshal(conv)
-	cs.cm.BroadcastToRoom(roomID, messageBytes)
+    // Siapkan roomID dan pesan untuk broadcast
+    roomID := fmt.Sprintf("%d", conv.ChatRoomID)
+    messageBytes, err := json.Marshal(conv)
+    if err != nil {
+        return err // Jika gagal melakukan marshal, return error
+    }
 
-	return nil
+    // Broadcast pesan ke semua koneksi dalam room yang sesuai
+    cs.cm.BroadcastMessage(roomID, messageBytes) // Gunakan hanya roomID dan messageBytes
+
+    return nil
 }
 
-// GetRoomIDFromMessage mengurai pesan dan mengembalikan roomID.
-func GetRoomIDFromMessage(p []byte) (string, error) {
-	var msg MessageFormat
-	err := json.Unmarshal(p, &msg)
-	if err != nil {
-		return "", err
-	}
-	return msg.RoomID, nil
+
+
+func HandleWebSocket(cs *ConversationService) http.HandlerFunc {
+    return func(w http.ResponseWriter, r *http.Request) {
+        conn, err := upgrader.Upgrade(w, r, nil)
+        if err != nil {
+            log.Println("Upgrade to websocket failed:", err)
+            return
+        }
+        defer conn.Close()
+
+        chatRoomID := r.URL.Query().Get("room")
+        cs.cm.AddConnection(chatRoomID, conn)
+        defer cs.cm.RemoveConnection(chatRoomID, conn)
+
+        for {
+            _, p, err := conn.ReadMessage()
+            if err != nil {
+                log.Println("read:", err)
+                break
+            }
+
+            var conv models.Conversation
+            err = json.Unmarshal(p, &conv)
+            if err != nil {
+                log.Println("error unmarshaling message:", err)
+                continue
+            }
+
+            err = cs.SaveAndBroadcast(conv)
+            if err != nil {
+                log.Println("error saving and broadcasting message:", err)
+            }
+        }
+    }
 }

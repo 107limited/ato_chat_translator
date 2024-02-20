@@ -183,7 +183,7 @@ func (s *Server) SaveConversationHandler(w http.ResponseWriter, r *http.Request)
 	}
 
 	// Lakukan broadcast pesan ke room yang sesuai.
-	s.ConnectionManager.BroadcastToRoom(fmt.Sprintf("%d", chatRoomID), messageBytes)
+	s.ConnectionManager.BroadcastMessage(fmt.Sprintf("%d", chatRoomID), messageBytes)
 	log.Info("Conversation saved and broadcasted successfully")
 
 	translationResponse := models.TranslationResponse{
@@ -207,9 +207,9 @@ func (s *Server) SaveConversationHandler(w http.ResponseWriter, r *http.Request)
 	}
 
 	// Kirim response ke HTTP client.
-    w.WriteHeader(http.StatusCreated)
-    w.Header().Set("Content-Type", "application/json")
-    json.NewEncoder(w).Encode(translationResponse)
+	w.WriteHeader(http.StatusCreated)
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(translationResponse)
 
 }
 
