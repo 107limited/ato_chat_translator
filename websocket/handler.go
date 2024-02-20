@@ -76,6 +76,7 @@ func HandleWebSocket(cs *ConversationService) http.HandlerFunc {
 				log.Println("read:", err)
 				break
 			}
+			log.Printf("%v", p)
 
 			var conv models.Conversation
 			err = json.Unmarshal(p, &conv)
