@@ -67,6 +67,7 @@ func HandleWebSocket(cs *ConversationService) http.HandlerFunc {
 		defer conn.Close()
 
 		chatRoomID := r.URL.Query().Get("room")
+		log.Printf("%v", r.URL.Query())
 		cs.cm.AddConnection(chatRoomID, conn)
 		log.Printf("%v", cs.cm.Connections)
 		defer cs.cm.RemoveConnection(chatRoomID, conn)
