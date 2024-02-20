@@ -52,6 +52,7 @@ func (cm *ConnectionManager) RemoveConnection(chatRoomID string, conn *websocket
 
 // BroadcastMessage mengirimkan pesan ke semua koneksi di room tertentu.
 func (cm *ConnectionManager) BroadcastMessage(chatRoomID string, message []byte) {
+	log.Printf("called: %v", chatRoomID)
 	cm.mu.Lock()
 	defer cm.mu.Unlock()
 
