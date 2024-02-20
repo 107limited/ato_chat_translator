@@ -17,10 +17,10 @@ var upgrader = websocket.Upgrader{
     ReadBufferSize:  1024,
     WriteBufferSize: 1024,
     CheckOrigin: func(r *http.Request) bool {
-        // Bisa disesuaikan dengan kebutuhan validasi origin
-        return true // Mengizinkan semua origin
+        return true // atau logika yang lebih spesifik
     },
 }
+
 
 
 // MessageFormat mewakili format pesan yang Anda harapkan melalui WebSocket
@@ -77,12 +77,12 @@ func (cs *ConversationService) SaveAndBroadcast(conv models.Conversation) error 
 // Adjusted to accept ConversationService
 func HandleWebSocket(cs *ConversationService) http.HandlerFunc {
     return func(w http.ResponseWriter, r *http.Request) {
-        log.Printf("Trying to upgrade to websocket with Headers: %+v", r.Header) // Log untuk debug
         conn, err := upgrader.Upgrade(w, r, nil)
         if err != nil {
+            // Log error dan kirim response HTTP di sini
             log.Errorf("Failed to upgrade to websocket: %v, with headers: %v", err, r.Header)
-            http.Error(w, "Failed to upgrade to websocket", http.StatusBadRequest) // Mengembalikan response error
-            return
+            http.Error(w, "Failed to upgrade to websocket", http.StatusBadRequest) // Ini mungkin sudah cukup
+            return // Pastikan tidak ada kode tambahan yang mengirim header setelah baris ini
         }
         defer conn.Close()
 
