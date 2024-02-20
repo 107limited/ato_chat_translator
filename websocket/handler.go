@@ -68,6 +68,7 @@ func HandleWebSocket(cs *ConversationService) http.HandlerFunc {
 
 		chatRoomID := r.URL.Query().Get("room")
 		cs.cm.AddConnection(chatRoomID, conn)
+		log.Printf("%v", cs.cm.Connections)
 		defer cs.cm.RemoveConnection(chatRoomID, conn)
 
 		for {
@@ -76,10 +77,10 @@ func HandleWebSocket(cs *ConversationService) http.HandlerFunc {
 				log.Println("read:", err)
 				break
 			}
-            
+
 			var conv models.Conversation
 			log.Printf("%v", json.Unmarshal(p, &conv))
-            
+
 			err = json.Unmarshal(p, &conv)
 			if err != nil {
 				log.Printf("Error unmarshaling message: %v, message: %s", err, string(p))
