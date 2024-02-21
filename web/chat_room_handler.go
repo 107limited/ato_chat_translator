@@ -23,10 +23,6 @@ func init() {
 	log.SetLevel(log.DebugLevel) // or whatever level you need
 }
 
-// ChatRoomHandler adalah struct yang menangani request terkait chat room.
-type ChatRoomHandler struct {
-	DB *sql.DB
-}
 
 // NewChatRoomHandler adalah konstruktor untuk membuat instance baru dari ChatRoomHandler.
 func NewChatRoomHandler(db *sql.DB) *ChatRoomHandler {

@@ -82,15 +82,15 @@ func main() {
 
 	
 	
-	conversationRepo = chat.NewConversationRepository(db)
-    connectionManager := websocket.NewConnectionManager()
-    conversationService := websocket.NewConversationService(conversationRepo, connectionManager)
-    server.ConnectionManager = connectionManager
+	// conversationRepo = chat.NewConversationRepository(db)
+    // connectionManager := websocket.NewConnectionManager()
+    // conversationService := websocket.NewConversationService(conversationRepo, cm)
+    // server.ConnectionManager = connectionManager
     //wsHandler := websocket.HandleWebSocket(conversationService)
     
     // // Assuming `server.Router` is correctly set up elsewhere:
     server.Router.HandleFunc("/ws", func (w http.ResponseWriter, r *http.Request) {
-	    websocket.HandleWebSocket(conversationService)(w, r)
+	    websocket.HandleWebSocket(cs)(w, r)
     })
 
 	// Get the server port from the environment or .env file

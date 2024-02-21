@@ -20,6 +20,11 @@ import (
 	//"golang.org/x/text/language"
 )
 
+// ChatRoomHandler adalah struct yang menangani request terkait chat room.
+type ChatRoomHandler struct {
+	DB *sql.DB
+}
+
 type Server struct {
 	DB                  *sql.DB
 	Router              *mux.Router
@@ -42,6 +47,8 @@ func NewServer(db *sql.DB, repo chat.ConversationRepository, translator translat
 	server.initializeRoutes() // Initialize routes after all handlers are ready
 	return server
 }
+
+
 
 // SaveConversationHandler menangani permintaan untuk menyimpan percakapan
 func (s *Server) SaveConversationHandler(w http.ResponseWriter, r *http.Request) {
