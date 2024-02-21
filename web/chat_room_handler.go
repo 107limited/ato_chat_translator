@@ -286,3 +286,40 @@ func (s *Server) GetChatRoomsByUserIDHandler(w http.ResponseWriter, r *http.Requ
 	w.Header().Set("Content-Type", "application/json")
 	json.NewEncoder(w).Encode(chatRooms)
 }
+
+// GetLastMessageByChatRoomIDHandler handles the request to get the last message of a chat room.
+// func (s *Server) GetLastMessageByChatRoomIDHandler(w http.ResponseWriter, r *http.Request) {
+//     // Extract the chat room ID from the URL parameter.
+//     vars := mux.Vars(r)
+//     chatRoomID, ok := vars["chatRoomID"]
+//     if !ok {
+//         http.Error(w, "Chat room ID is required", http.StatusBadRequest)
+//         return
+//     }
+
+//     // Convert chatRoomID to int
+//     id, err := strconv.Atoi(chatRoomID)
+//     if err != nil {
+//         http.Error(w, "Invalid chat room ID", http.StatusBadRequest)
+//         return
+//     }
+
+//     // Retrieve the last message for the given chat room ID using the conversation repository.
+//     lastMessage, err := s.ConversationRepo.GetLastMessageByChatRoomID(id)
+//     if err != nil {
+//         if err == sql.ErrNoRows {
+//             http.Error(w, "No messages found for the given chat room ID", http.StatusNotFound)
+//             return
+//         }
+//         log.WithError(err).Error("Failed to get the last message for the chat room")
+//         http.Error(w, "Internal server error", http.StatusInternalServerError)
+//         return
+//     }
+
+//     // Respond with the last message in JSON format.
+//     w.Header().Set("Content-Type", "application/json")
+//     if err := json.NewEncoder(w).Encode(lastMessage); err != nil {
+//         log.WithError(err).Error("Failed to encode the last message")
+//         http.Error(w, "Internal server error", http.StatusInternalServerError)
+//     }
+// }

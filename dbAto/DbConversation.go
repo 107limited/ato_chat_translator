@@ -189,3 +189,14 @@ ORDER BY
 
 	return rooms, nil
 }
+
+// // GetLastMessageByChatRoomID retrieves the last message from the specified chat room.
+// func  GetLastMessageByChatRoomID(chatRoomID int) (*models.Conversation, error) {
+//     var lastMessage models.Conversation
+//     query := `SELECT * FROM conversations WHERE chat_room_id = ? ORDER BY created_at DESC LIMIT 1`
+//     row := db.QueryRow(query, chatRoomID)
+//     if err := row.Scan(&lastMessage.ID, &lastMessage.JapaneseText, &lastMessage.EnglishText, /* ... other fields ... */); err != nil {
+//         return nil, err
+//     }
+//     return &lastMessage, nil
+// }

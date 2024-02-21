@@ -13,6 +13,9 @@ import (
 	"math/rand"
 	"net/http"
 	"strings"
+	"unicode"
+
+	//"unicode"
 
 	"time"
 
@@ -42,6 +45,18 @@ func NewServer(db *sql.DB, repo chat.ConversationRepository, translator translat
 	}
 	server.initializeRoutes() // Initialize routes after all handlers are ready
 	return server
+}
+
+// You'll need to implement the actual language detection logic
+func isJapanese(message string) bool {
+	// Implement language detection logic here
+	// For now, let's assume a simple check where if a message contains any Japanese characters, it's considered Japanese
+	for _, r := range message {
+		if unicode.In(r, unicode.Han, unicode.Hiragana, unicode.Katakana) {
+			return true
+		}
+	}
+	return false
 }
 
 // SaveConversationHandler menangani permintaan untuk menyimpan percakapan
@@ -130,10 +145,21 @@ func (s *Server) SaveConversationHandler(w http.ResponseWriter, r *http.Request)
 
 	// Tentukan bahasa berdasarkan speaker
 	var japaneseText, englishText string
-	if strings.EqualFold(translationRequest.Speaker, "ato") {
+	// if strings.EqualFold(translationRequest.Speaker, "ato") {
+	// 	japaneseText = translationRequest.OriginalMessage
+	// 	englishText = translatedMessage
+	// } else {
+	// 	englishText = translationRequest.OriginalMessage
+	// 	japaneseText = translatedMessage
+	// }
+
+	// Determine the language based on the speaker or the content of the message
+	if isJapanese(translationRequest.OriginalMessage) {
+		// If the original message is in Japanese, translate it to English
 		japaneseText = translationRequest.OriginalMessage
 		englishText = translatedMessage
 	} else {
+		// If the original message is in English, translate it to Japanese
 		englishText = translationRequest.OriginalMessage
 		japaneseText = translatedMessage
 	}
@@ -171,8 +197,8 @@ func (s *Server) SaveConversationHandler(w http.ResponseWriter, r *http.Request)
 	// Create messageToBroadcast with a random ID and the current time formatted in ISO 8601
 	messageToBroadcast := websocket.Message{
 		ID:                rand.Intn(1000),                                 // Generates a random integer up to 1000
-		JapaneseText:      translatedMessage,              // Use the actual original message content
-		EnglishText:       translationRequest.OriginalMessage,                               // Use the actual translated message content
+		JapaneseText:      japaneseText,                               // Use the actual original message content
+		EnglishText:       englishText,              // Use the actual translated message content
 		Speaker:           userName,                                        // Use the actual user's name
 		UserID:            translationRequest.User1ID,                      // Use the actual user ID
 		CompanyID:         companyID,                                       // Use the actual company ID obtained from the database or context
