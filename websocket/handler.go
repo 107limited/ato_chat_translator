@@ -8,6 +8,7 @@ import (
 	"fmt"
 	"log"
 	"net/http"
+	"strconv"
 
 	"github.com/gorilla/websocket"
 )
@@ -59,6 +60,7 @@ func (cs *ConversationService) SaveAndBroadcast(conv models.Conversation) error 
 
 func HandleWebSocket(cs *ConversationService) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
+		// Upgrade HTTP to WebSocket connection
 		conn, err := upgrader.Upgrade(w, r, nil)
 		if err != nil {
 			log.Println("Upgrade to websocket failed:", err)
@@ -66,31 +68,46 @@ func HandleWebSocket(cs *ConversationService) http.HandlerFunc {
 		}
 		defer conn.Close()
 
-		chatRoomID := r.URL.Query()["room_id"][0]
+		// Safely get chatRoomID from URL query parameters
+		chatRoomIDs, ok := r.URL.Query()["room_id"]
+		if !ok || len(chatRoomIDs[0]) < 1 {
+			log.Println("URL Param 'room_id' is missing")
+			return // Optionally send an error message through WebSocket before returning
+		}
+		chatRoomID := chatRoomIDs[0]
+
+		// Add connection to ConnectionManager
 		cs.cm.AddConnection(chatRoomID, conn)
-		log.Printf("%v", cs.cm.Connections)
 		defer cs.cm.RemoveConnection(chatRoomID, conn)
 
+		// Continuously read messages from WebSocket
 		for {
 			_, p, err := conn.ReadMessage()
 			if err != nil {
-				log.Println("read:", err)
-				break
+				log.Printf("read error: %v", err)
+				break // Exit loop on read error (e.g., client disconnect)
 			}
 
 			var conv models.Conversation
-            fmt.Sscan(chatRoomID, &conv.ChatRoomID)
-			
-
 			err = json.Unmarshal(p, &conv)
 			if err != nil {
 				log.Printf("Error unmarshaling message: %v, message: %s", err, string(p))
-				continue // atau handle error sesuai kebutuhan
+				continue // Skip this message but continue listening for new ones
 			}
 
+			// Set ChatRoomID from URL parameter, assuming conv.ChatRoomID is an int
+			if chatRoomID, err := strconv.Atoi(chatRoomID); err == nil {
+				conv.ChatRoomID = chatRoomID
+			} else {
+				log.Printf("Invalid chatRoomID: %v", err)
+				continue // Skip this message but continue listening for new ones
+			}
+
+			// Save and broadcast the message
 			err = cs.SaveAndBroadcast(conv)
 			if err != nil {
-				log.Println("error saving and broadcasting message:", err)
+				log.Printf("error saving and broadcasting message: %v", err)
+				// Consider how to handle broadcast errors, possibly notify sender
 			}
 		}
 	}
