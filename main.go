@@ -85,7 +85,7 @@ func main() {
 	// conversationRepo = chat.NewConversationRepository(db)
     // connectionManager := websocket.NewConnectionManager()
     // conversationService := websocket.NewConversationService(conversationRepo, cm)
-    // server.ConnectionManager = connectionManager
+    server.ConnectionManager = cm
     //wsHandler := websocket.HandleWebSocket(conversationService)
     
     // // Assuming `server.Router` is correctly set up elsewhere:
