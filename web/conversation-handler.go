@@ -10,6 +10,7 @@ import (
 	"database/sql"
 	"encoding/json"
 	"fmt"
+	"math/rand"
 	"net/http"
 	"strings"
 
@@ -167,21 +168,20 @@ func (s *Server) SaveConversationHandler(w http.ResponseWriter, r *http.Request)
 		return
 	}
 
+	// Create messageToBroadcast with a random ID and the current time formatted in ISO 8601
 	messageToBroadcast := websocket.Message{
-		// Assuming you have these values available; replace them as necessary.
-		ID:                translationRequest.ID, // Example, adjust as needed
-		JapaneseText:      translationRequest.JapaneseText, // or the appropriate source
-		EnglishText:       translationRequest.EnglishText, // or the appropriate source
-		Speaker:           userName, // Assuming userName is the speaker's name
-		UserID:            translationRequest.User1ID,
-		CompanyID:         2, // Example, adjust as needed
-		ChatRoomID:        chatRoomID,
-		OriginalMessage:   translationRequest.OriginalMessage,
-		TranslatedMessage: translatedMessage,
-		CreatedAt:         time.Now(), // Or the specific creation time if available
-		Date:              dateInt64,
+		ID:                rand.Intn(1000),                                 // Generates a random integer up to 1000
+		JapaneseText:      translationRequest.OriginalMessage,              // Use the actual original message content
+		EnglishText:       translatedMessage,                               // Use the actual translated message content
+		Speaker:           userName,                                        // Use the actual user's name
+		UserID:            translationRequest.User1ID,                      // Use the actual user ID
+		CompanyID:         companyID,                                       // Use the actual company ID obtained from the database or context
+		ChatRoomID:        int(chatRoomID),                                 // Use the actual chat room ID
+		OriginalMessage:   translationRequest.OriginalMessage,              // The original message text
+		TranslatedMessage: translatedMessage,                               // The translated message text
+		CreatedAt:         time.Now().UTC().Format(time.RFC3339),           // Formats time in ISO 8601
+		Date:              time.Now().UnixNano() / int64(time.Millisecond), // Convert to milliseconds
 	}
-	
 
 	// Encode pesan menjadi JSON.
 	messageBytes, err := json.Marshal(messageToBroadcast)

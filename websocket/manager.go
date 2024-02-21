@@ -4,23 +4,22 @@ package websocket
 import (
 	"log"
 	"sync"
-	"time"
 
 	"github.com/gorilla/websocket"
 )
 
 type Message struct {
-    ID                int       `json:"id"`
-    JapaneseText      string    `json:"japanese_text"`
-    EnglishText       string    `json:"english_text"`
-    Speaker           string    `json:"speaker"`
-    UserID            int       `json:"user_id"`
-    CompanyID         int       `json:"company_id"`
-    ChatRoomID        int64       `json:"chat_room_id"`
-    OriginalMessage   string    `json:"original_message"`
-    TranslatedMessage string    `json:"translated_message"`
-    CreatedAt         time.Time `json:"created_at"`
-    Date              int64     `json:"date"`
+	ID                int    `json:"id"`
+	JapaneseText      string `json:"japanese_text"`
+	EnglishText       string `json:"english_text"`
+	Speaker           string `json:"speaker"`
+	UserID            int    `json:"user_id"`
+	CompanyID         int    `json:"company_id"`
+	ChatRoomID        int    `json:"chat_room_id"`
+	OriginalMessage   string `json:"original_message"`
+	TranslatedMessage string `json:"translated_message"`
+	CreatedAt         string `json:"created_at"`
+	Date              int64  `json:"date"`
 }
 
 type ConnectionManager struct {
