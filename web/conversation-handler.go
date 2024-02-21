@@ -187,6 +187,8 @@ func (s *Server) SaveConversationHandler(w http.ResponseWriter, r *http.Request)
 	}
 
 	// Lakukan broadcast pesan ke room yang sesuai.
+	log.Printf("here lies chatroom_id: %v", chatRoomID)
+	log.Printf("here message byte: %v", messageBytes)
 	s.ConnectionManager.BroadcastMessage(fmt.Sprintf("%d", chatRoomID), messageBytes)
 	log.Info("Conversation saved and broadcasted successfully")
 
