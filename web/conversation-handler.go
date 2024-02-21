@@ -20,10 +20,7 @@ import (
 	//"golang.org/x/text/language"
 )
 
-// ChatRoomHandler adalah struct yang menangani request terkait chat room.
-type ChatRoomHandler struct {
-	DB *sql.DB
-}
+
 
 type Server struct {
 	DB                  *sql.DB
