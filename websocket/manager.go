@@ -4,21 +4,24 @@ package websocket
 import (
 	"log"
 	"sync"
+	"time"
 
 	"github.com/gorilla/websocket"
 )
 
-// Pastikan ini ada di dalam package `websocket`.
 type Message struct {
-    RoomID             string `json:"roomID"`
-    OriginalMessage    string `json:"originalMessage"`
-    TranslatedMessage  string `json:"translatedMessage"`
-    CompanyName        string `json:"companyName"`
-    ChatRoomID         int    `json:"chatRoomID"`
-    UserID             int    `json:"userID"`
-    Speaker            string `json:"speaker"`
+    ID                int       `json:"id"`
+    JapaneseText      string    `json:"japanese_text"`
+    EnglishText       string    `json:"english_text"`
+    Speaker           string    `json:"speaker"`
+    UserID            int       `json:"user_id"`
+    CompanyID         int       `json:"company_id"`
+    ChatRoomID        int64       `json:"chat_room_id"`
+    OriginalMessage   string    `json:"original_message"`
+    TranslatedMessage string    `json:"translated_message"`
+    CreatedAt         time.Time `json:"created_at"`
+    Date              int64     `json:"date"`
 }
-
 
 type ConnectionManager struct {
 	Connections map[string]map[*websocket.Conn]struct{}

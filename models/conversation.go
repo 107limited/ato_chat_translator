@@ -21,12 +21,15 @@ type Conversation struct {
 
 // TranslationRequest represents the JSON structure for translation request
 type TranslationRequest struct {
+	ID              int    `json:"id"`
 	User1ID         int    `json:"user1_id"` // Pastikan tag JSON sesuai dengan key di request body
-	User2ID         int    `json:"user2_id"`	
+	User2ID         int    `json:"user2_id"`
 	Speaker         string `json:"speaker"`
 	CompanyID       int    `json:"company_id"`
 	ChatRoomID      int    `json:"chat_room_id"`
 	OriginalMessage string `json:"original_message"`
+	JapaneseText    string `json:"japanese_text"`
+	EnglishText     string `json:"english_text"`
 	Date            int64  `json:"date"`
 }
 

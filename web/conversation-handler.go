@@ -167,16 +167,21 @@ func (s *Server) SaveConversationHandler(w http.ResponseWriter, r *http.Request)
 		return
 	}
 
-	// Buat pesan yang akan di-broadcast ke klien WebSocket.
 	messageToBroadcast := websocket.Message{
-		RoomID:            fmt.Sprintf("%d", chatRoomID), // Convert int64 to string for RoomID.
+		// Assuming you have these values available; replace them as necessary.
+		ID:                translationRequest.ID, // Example, adjust as needed
+		JapaneseText:      translationRequest.JapaneseText, // or the appropriate source
+		EnglishText:       translationRequest.EnglishText, // or the appropriate source
+		Speaker:           userName, // Assuming userName is the speaker's name
+		UserID:            translationRequest.User1ID,
+		CompanyID:         2, // Example, adjust as needed
+		ChatRoomID:        chatRoomID,
 		OriginalMessage:   translationRequest.OriginalMessage,
 		TranslatedMessage: translatedMessage,
-		CompanyName:       companyName,
-		ChatRoomID:        int(chatRoomID),
-		UserID:            translationRequest.User1ID,
-		Speaker:           userName,
+		CreatedAt:         time.Now(), // Or the specific creation time if available
+		Date:              dateInt64,
 	}
+	
 
 	// Encode pesan menjadi JSON.
 	messageBytes, err := json.Marshal(messageToBroadcast)
