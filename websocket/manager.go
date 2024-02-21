@@ -10,11 +10,15 @@ import (
 
 // Pastikan ini ada di dalam package `websocket`.
 type Message struct {
-	RoomID   string `json:"roomID"`
-	Content  string `json:"content"`
-	Sender   int    `json:"sender"`
-	Receiver int    `json:"receiver"`
+    RoomID             string `json:"roomID"`
+    OriginalMessage    string `json:"originalMessage"`
+    TranslatedMessage  string `json:"translatedMessage"`
+    CompanyName        string `json:"companyName"`
+    ChatRoomID         int    `json:"chatRoomID"`
+    UserID             int    `json:"userID"`
+    Speaker            string `json:"speaker"`
 }
+
 
 type ConnectionManager struct {
 	Connections map[string]map[*websocket.Conn]struct{}

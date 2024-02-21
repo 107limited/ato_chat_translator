@@ -20,8 +20,6 @@ import (
 	//"golang.org/x/text/language"
 )
 
-
-
 type Server struct {
 	DB                  *sql.DB
 	Router              *mux.Router
@@ -44,8 +42,6 @@ func NewServer(db *sql.DB, repo chat.ConversationRepository, translator translat
 	server.initializeRoutes() // Initialize routes after all handlers are ready
 	return server
 }
-
-
 
 // SaveConversationHandler menangani permintaan untuk menyimpan percakapan
 func (s *Server) SaveConversationHandler(w http.ResponseWriter, r *http.Request) {
@@ -173,17 +169,20 @@ func (s *Server) SaveConversationHandler(w http.ResponseWriter, r *http.Request)
 
 	// Buat pesan yang akan di-broadcast ke klien WebSocket.
 	messageToBroadcast := websocket.Message{
-		RoomID:  fmt.Sprintf("%d", chatRoomID), // Mengkonversi int64 ke string.
-		Content: translatedMessage,             // Atau pesan yang ingin Anda broadcast.
-		Sender:  translationRequest.User1ID,    // Pastikan ini sesuai dengan tipe data di struktur Message.
-		Receiver: translationRequest.User2ID,
+		RoomID:            fmt.Sprintf("%d", chatRoomID), // Convert int64 to string for RoomID.
+		OriginalMessage:   translationRequest.OriginalMessage,
+		TranslatedMessage: translatedMessage,
+		CompanyName:       companyName,
+		ChatRoomID:        int(chatRoomID),
+		UserID:            translationRequest.User1ID,
+		Speaker:           userName,
 	}
 
 	// Encode pesan menjadi JSON.
 	messageBytes, err := json.Marshal(messageToBroadcast)
 	if err != nil {
 		log.Printf("Failed to encode message for broadcasting: %v", err)
-		http.Error(w, "Internal server error", http.StatusInternalServerError)
+		// Handle the error, e.g., by sending an HTTP error response if this is part of an HTTP handler.
 		return
 	}
 
