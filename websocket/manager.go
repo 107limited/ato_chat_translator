@@ -10,9 +10,10 @@ import (
 
 // Pastikan ini ada di dalam package `websocket`.
 type Message struct {
-	RoomID  string `json:"roomID"`
-	Content string `json:"content"`
-	Sender  int    `json:"sender"`
+	RoomID   string `json:"roomID"`
+	Content  string `json:"content"`
+	Sender   int    `json:"sender"`
+	Receiver int    `json:"receiver"`
 }
 
 type ConnectionManager struct {

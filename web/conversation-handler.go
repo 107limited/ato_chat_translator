@@ -176,6 +176,7 @@ func (s *Server) SaveConversationHandler(w http.ResponseWriter, r *http.Request)
 		RoomID:  fmt.Sprintf("%d", chatRoomID), // Mengkonversi int64 ke string.
 		Content: translatedMessage,             // Atau pesan yang ingin Anda broadcast.
 		Sender:  translationRequest.User1ID,    // Pastikan ini sesuai dengan tipe data di struktur Message.
+		Receiver: translationRequest.User2ID,
 	}
 
 	// Encode pesan menjadi JSON.
