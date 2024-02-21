@@ -73,7 +73,7 @@ func main() {
 
 	// Create HTTP server
 	server := web.NewServer(db, conversationRepo, gpt4Translator, chatRoomHandler, cs)
-	server.ConnectionManager = websocket.NewConnectionManager() // Inisialisasi ConnectionManager di sini
+	//server.ConnectionManager = websocket.NewConnectionManager() // Inisialisasi ConnectionManager di sini
 
 	// Set log format as text formatter with full timestamp
 	log.SetFormatter(&log.TextFormatter{
@@ -85,10 +85,13 @@ func main() {
 	conversationRepo = chat.NewConversationRepository(db)
     connectionManager := websocket.NewConnectionManager()
     conversationService := websocket.NewConversationService(conversationRepo, connectionManager)
-    wsHandler := websocket.HandleWebSocket(conversationService)
+    server.ConnectionManager = connectionManager
+    //wsHandler := websocket.HandleWebSocket(conversationService)
     
     // // Assuming `server.Router` is correctly set up elsewhere:
-    server.Router.HandleFunc("/ws", wsHandler)
+    server.Router.HandleFunc("/ws", func (w http.ResponseWriter, r *http.Request) {
+	    websocket.HandleWebSocket(conversationService)(w, r)
+    })
 
 	// Get the server port from the environment or .env file
 	port := os.Getenv("PORT_SERVER")

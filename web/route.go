@@ -1,10 +1,10 @@
 package web
 
-import (
-	"ato_chat/websocket"
+//import (
+	//"ato_chat/websocket"
 	
-	"net/http"
-)
+	//"net/http"
+//)
 
 // initializeRoutes mengatur rute-rute untuk server
 func (s *Server) initializeRoutes() {
@@ -12,9 +12,9 @@ func (s *Server) initializeRoutes() {
 	// Pastikan chatRepo dan connManager sudah diinisialisasi
 	//conversationService := websocket.NewConversationService(chatRepo, connManager)
 	// Setup WebSocket route
-    s.Router.HandleFunc("/ws", func(w http.ResponseWriter, r *http.Request) {
-        websocket.HandleWebSocket(s.ConversationService)(w, r)
-    }).Methods("GET")
+    //s.Router.HandleFunc("/ws", func(w http.ResponseWriter, r *http.Request) {
+    //    websocket.HandleWebSocket(s.ConversationService)(w, r)
+    //}).Methods("GET")
 	
 
 	// // Rute yang sudah ada

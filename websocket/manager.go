@@ -57,6 +57,7 @@ func (cm *ConnectionManager) BroadcastMessage(chatRoomID string, message []byte)
 	defer cm.mu.Unlock()
 
 	// Kirim pesan ke semua koneksi di room tersebut
+	log.Printf("connection: %v", cm.Connections)
 	for conn := range cm.Connections[chatRoomID] {
 		if err := conn.WriteMessage(websocket.TextMessage, message); err != nil {
 			// Log error atau handle jika diperlukan
