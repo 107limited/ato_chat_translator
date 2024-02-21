@@ -171,8 +171,8 @@ func (s *Server) SaveConversationHandler(w http.ResponseWriter, r *http.Request)
 	// Create messageToBroadcast with a random ID and the current time formatted in ISO 8601
 	messageToBroadcast := websocket.Message{
 		ID:                rand.Intn(1000),                                 // Generates a random integer up to 1000
-		JapaneseText:      translationRequest.OriginalMessage,              // Use the actual original message content
-		EnglishText:       translatedMessage,                               // Use the actual translated message content
+		JapaneseText:      translatedMessage,              // Use the actual original message content
+		EnglishText:       translationRequest.OriginalMessage,                               // Use the actual translated message content
 		Speaker:           userName,                                        // Use the actual user's name
 		UserID:            translationRequest.User1ID,                      // Use the actual user ID
 		CompanyID:         companyID,                                       // Use the actual company ID obtained from the database or context
