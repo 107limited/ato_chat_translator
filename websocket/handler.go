@@ -80,7 +80,7 @@ func HandleWebSocket(cs *ConversationService) http.HandlerFunc {
 
 			var conv models.Conversation
             fmt.Sscan(chatRoomID, &conv.ChatRoomID)
-			log.Printf("%v", json.Unmarshal(p, &conv))
+			
 
 			err = json.Unmarshal(p, &conv)
 			if err != nil {
