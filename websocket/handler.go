@@ -59,6 +59,54 @@ func (cs *ConversationService) SaveAndBroadcast(conv models.Conversation) error 
 	return nil
 }
 
+// Struktur untuk last message
+type LastMessage struct {
+	English  string `json:"english"`
+	Japanese string `json:"japanese"`
+	UserID   int    `json:"user_id"`
+	Date     int64  `json:"date"`
+}
+
+// Struktur untuk pesan yang akan dikirim
+type SidebarMessage struct {
+	UserID          int         `json:"user_id"`
+	CompanyName     string      `json:"company_name"`
+	Name            string      `json:"name"`
+	ChatRoomID      int         `json:"chat_room_id"`
+	CreatedAt       string      `json:"created_at"`
+	LastMessage     LastMessage `json:"last_message"`
+	LastMessageUser int         `json:"last_message_user"`
+}
+
+// Fungsi untuk mengirim pesan sidebar
+func (cs *ConversationService) SendSidebarMessage(conn *websocket.Conn, userID int, companyName, name string, chatRoomID int, lastMessage LastMessage) error {
+	sidebarMessage := SidebarMessage{
+		UserID:          userID,
+		CompanyName:     companyName,
+		Name:            name,
+		ChatRoomID:      chatRoomID,
+		CreatedAt:       time.Now().UTC().Format(time.RFC3339),
+		LastMessage:     lastMessage,
+		LastMessageUser: lastMessage.UserID,
+	}
+
+	// Encode pesan menjadi JSON
+	messageBytes, err := json.Marshal(sidebarMessage)
+	if err != nil {
+		log.Printf("Failed to encode sidebar message: %v", err)
+		return err
+	}
+
+	// Kirim pesan melalui WebSocket
+	if err := conn.WriteMessage(websocket.TextMessage, messageBytes); err != nil {
+		log.Printf("Failed to send sidebar message: %v", err)
+		return err
+	}
+
+	log.Printf("Sidebar message sent: %+v", sidebarMessage)
+	return nil
+}
+
 func HandleWebSocket(cs *ConversationService) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		conn, err := upgrader.Upgrade(w, r, nil)
@@ -68,14 +116,19 @@ func HandleWebSocket(cs *ConversationService) http.HandlerFunc {
 		}
 		defer conn.Close()
 
-		chatRoomID, ok := r.URL.Query()["room_id"]
-		if !ok || len(chatRoomID[0]) < 1 {
-			log.Println("URL Param 'room_id' is missing")
-			return
-		}
+		chatRoomID := r.URL.Query().Get("room_id")
+        if chatRoomID == "" {
+            // Jika tidak ada chatRoomID, tambahkan koneksi ke semua chat room.
+            cs.cm.AddGlobalConnection(conn)
+            defer cs.cm.RemoveGlobalConnection(conn)
+        } else {
+            // Jika ada chatRoomID, tambahkan koneksi ke chat room tersebut.
+            cs.cm.AddConnectionToRoom(chatRoomID, conn)
+            defer cs.cm.RemoveConnectionFromRoom(chatRoomID, conn)
+        }
 
-		cs.cm.AddConnection(chatRoomID[0], conn)
-		defer cs.cm.RemoveConnection(chatRoomID[0], conn)
+		// cs.cm.AddConnection(chatRoomID[0], conn)
+		// defer cs.cm.RemoveConnection(chatRoomID[0], conn)
 
 		for {
 			_, p, err := conn.ReadMessage()
@@ -91,7 +144,7 @@ func HandleWebSocket(cs *ConversationService) http.HandlerFunc {
 				continue
 			}
 
-			conv.ChatRoomID, err = strconv.Atoi(chatRoomID[0])
+			conv.ChatRoomID, err = strconv.Atoi(chatRoomID)
 			if err != nil {
 				log.Printf("Invalid chatRoomID: %v", err)
 				continue
@@ -126,8 +179,8 @@ func notifyParticipants(conv models.Conversation, cs *ConversationService) {
 		LastMessageUser int `json:"last_message_user"`
 	}{
 		UserID:          conv.UserID,
-		CompanyName:     conv.CompanyName,           // Assuming you fetch this from your database or have it in your conversation model
-		Name:            conv.Speaker, // Assuming you fetch this from your database based on UserID
+		CompanyName:     conv.CompanyName, // Assuming you fetch this from your database or have it in your conversation model
+		Name:            conv.Speaker,     // Assuming you fetch this from your database based on UserID
 		ChatRoomID:      conv.ChatRoomID,
 		CreatedAt:       time.Now().UTC().Format(time.RFC3339), // Use the actual creation time of the message
 		LastMessageUser: conv.UserID,

@@ -24,12 +24,14 @@ type Message struct {
 
 type ConnectionManager struct {
 	Connections map[string]map[*websocket.Conn]struct{}
+	GlobalConnections map[*websocket.Conn]struct{}
 	mu          sync.Mutex
 }
 
 func NewConnectionManager() *ConnectionManager {
 	return &ConnectionManager{
 		Connections: make(map[string]map[*websocket.Conn]struct{}),
+		GlobalConnections: make(map[*websocket.Conn]struct{}),
 	}
 }
 
@@ -55,6 +57,42 @@ func (cm *ConnectionManager) RemoveConnection(chatRoomID string, conn *websocket
 			}
 		}
 	}
+}
+
+// AddGlobalConnection adds a new connection to the global list.
+func (cm *ConnectionManager) AddGlobalConnection(conn *websocket.Conn) {
+    cm.mu.Lock()
+    defer cm.mu.Unlock()
+    cm.GlobalConnections[conn] = struct{}{}
+}
+
+// RemoveGlobalConnection removes a connection from the global list.
+func (cm *ConnectionManager) RemoveGlobalConnection(conn *websocket.Conn) {
+    cm.mu.Lock()
+    defer cm.mu.Unlock()
+    delete(cm.GlobalConnections, conn)
+}
+
+// AddConnectionToRoom adds a new connection to a specific room.
+func (cm *ConnectionManager) AddConnectionToRoom(chatRoomID string, conn *websocket.Conn) {
+    cm.mu.Lock()
+    defer cm.mu.Unlock()
+    if _, ok := cm.Connections[chatRoomID]; !ok {
+        cm.Connections[chatRoomID] = make(map[*websocket.Conn]struct{})
+    }
+    cm.Connections[chatRoomID][conn] = struct{}{}
+}
+
+// RemoveConnectionFromRoom removes a connection from a specific room.
+func (cm *ConnectionManager) RemoveConnectionFromRoom(chatRoomID string, conn *websocket.Conn) {
+    cm.mu.Lock()
+    defer cm.mu.Unlock()
+    if connections, ok := cm.Connections[chatRoomID]; ok {
+        delete(connections, conn)
+        if len(connections) == 0 {
+            delete(cm.Connections, chatRoomID)
+        }
+    }
 }
 
 // BroadcastMessage mengirimkan pesan ke semua koneksi di room tertentu.
