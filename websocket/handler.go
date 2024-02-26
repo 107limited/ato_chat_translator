@@ -7,6 +7,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"log"
+
 	"net/http"
 	"strconv"
 	"time"
@@ -30,6 +31,32 @@ type MessageFormat struct {
 type ConversationService struct {
 	repo chat.ConversationRepository
 	cm   *ConnectionManager
+}
+
+// Struktur untuk last message
+type LastMessage struct {
+	English  string `json:"english"`
+	Japanese string `json:"japanese"`
+	UserID   int    `json:"user_id"`
+	Date     int64  `json:"date"`
+}
+
+// Struktur untuk pesan yang akan dikirim
+type SidebarMessage struct {
+	UserID          int         `json:"user_id"`
+	CompanyName     string      `json:"company_name"`
+	Name            string      `json:"name"`
+	ChatRoomID      int         `json:"chat_room_id"`
+	CreatedAt       string      `json:"created_at"`
+	LastMessage     LastMessage `json:"last_message"`
+	LastMessageUser int         `json:"last_message_user"`
+}
+
+// TypingMessage represents the structure of a typing notification.
+type TypingMessage struct {
+	ChatRoomID string `json:"chatRoomID"`
+	UserID     int    `json:"userID"`
+	IsTyping   bool   `json:"isTyping"`
 }
 
 func NewConversationService(repo chat.ConversationRepository, cm *ConnectionManager) *ConversationService {
@@ -57,25 +84,6 @@ func (cs *ConversationService) SaveAndBroadcast(conv models.Conversation) error 
 	cs.cm.BroadcastMessage(roomID, messageBytes) // Gunakan hanya roomID dan messageBytes
 
 	return nil
-}
-
-// Struktur untuk last message
-type LastMessage struct {
-	English  string `json:"english"`
-	Japanese string `json:"japanese"`
-	UserID   int    `json:"user_id"`
-	Date     int64  `json:"date"`
-}
-
-// Struktur untuk pesan yang akan dikirim
-type SidebarMessage struct {
-	UserID          int         `json:"user_id"`
-	CompanyName     string      `json:"company_name"`
-	Name            string      `json:"name"`
-	ChatRoomID      int         `json:"chat_room_id"`
-	CreatedAt       string      `json:"created_at"`
-	LastMessage     LastMessage `json:"last_message"`
-	LastMessageUser int         `json:"last_message_user"`
 }
 
 // Fungsi untuk mengirim pesan sidebar
@@ -107,6 +115,18 @@ func (cs *ConversationService) SendSidebarMessage(conn *websocket.Conn, userID i
 	return nil
 }
 
+func (cs *ConversationService) BroadcastTypingStatus(typingMsg TypingMessage) {
+	cs.cm.mu.Lock()
+	defer cs.cm.mu.Unlock()
+
+	for conn := range cs.cm.Connections[typingMsg.ChatRoomID] {
+		err := conn.WriteJSON(typingMsg)
+		if err != nil {
+			log.Printf("error broadcasting typing status: %v", err)
+		}
+	}
+}
+
 func HandleWebSocket(cs *ConversationService) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		conn, err := upgrader.Upgrade(w, r, nil)
@@ -117,15 +137,15 @@ func HandleWebSocket(cs *ConversationService) http.HandlerFunc {
 		defer conn.Close()
 
 		chatRoomID := r.URL.Query().Get("room_id")
-        if chatRoomID == "" {
-            // Jika tidak ada chatRoomID, tambahkan koneksi ke semua chat room.
-            cs.cm.AddGlobalConnection(conn)
-            defer cs.cm.RemoveGlobalConnection(conn)
-        } else {
-            // Jika ada chatRoomID, tambahkan koneksi ke chat room tersebut.
-            cs.cm.AddConnectionToRoom(chatRoomID, conn)
-            defer cs.cm.RemoveConnectionFromRoom(chatRoomID, conn)
-        }
+		if chatRoomID == "" {
+			// Jika tidak ada chatRoomID, tambahkan koneksi ke semua chat room.
+			cs.cm.AddGlobalConnection(conn)
+			defer cs.cm.RemoveGlobalConnection(conn)
+		} else {
+			// Jika ada chatRoomID, tambahkan koneksi ke chat room tersebut.
+			cs.cm.AddConnectionToRoom(chatRoomID, conn)
+			defer cs.cm.RemoveConnectionFromRoom(chatRoomID, conn)
+		}
 
 		// cs.cm.AddConnection(chatRoomID[0], conn)
 		// defer cs.cm.RemoveConnection(chatRoomID[0], conn)
@@ -136,6 +156,16 @@ func HandleWebSocket(cs *ConversationService) http.HandlerFunc {
 				log.Printf("read error: %v", err)
 				break
 			}
+
+			var typingMessage TypingMessage
+			err = json.Unmarshal(p, &typingMessage)
+			if err != nil {
+				log.Printf("Error unmarshaling typing message: %v", err)
+				continue
+			}
+
+			// Broadcast the typing status to other users in the same chat room.
+			cs.BroadcastTypingStatus(typingMessage)
 
 			var conv models.Conversation
 			err = json.Unmarshal(p, &conv)
@@ -158,6 +188,7 @@ func HandleWebSocket(cs *ConversationService) http.HandlerFunc {
 				// send a notification to the chat room participants including sender and receiver.
 				notifyParticipants(conv, cs)
 			}
+
 		}
 	}
 }
