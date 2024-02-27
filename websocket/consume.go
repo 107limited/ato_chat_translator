@@ -73,9 +73,9 @@ func HandleWSL(w http.ResponseWriter, r *http.Request) {
 		var company string
 
 		if message.CompanyID == 1 {
-			 company = "ATO"
+			 company = "107"
 		}else {
-			company = "107"
+			company = "ATO"
 		}
 
 		sidebar := SidebarMessage{
