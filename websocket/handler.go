@@ -123,12 +123,12 @@ func (cs *ConversationService) SendSidebarMessage(conn *websocket.Conn, userID i
 	return nil
 }
 
-// BroadcastTypingStatus broadcasts typing status to users in a chat room
+// BroadcastTypingStatus broadcasts typing status to users in a chat room.
 func (cs *ConversationService) BroadcastTypingStatus(typingMsg TypingMessage) {
-	cs.cm.mu.Lock()
-	defer cs.cm.mu.Unlock()
+	cs.cm.connectionsMu.Lock()
+	defer cs.cm.connectionsMu.Unlock()
 
-	// Iterate through all connections in the chat room and send the typing status
+	// Iterate through all connections in the chat room and send the typing status.
 	for conn := range cs.cm.Connections[typingMsg.ChatRoomID] {
 		err := conn.WriteJSON(typingMsg)
 		if err != nil {
@@ -140,7 +140,7 @@ func (cs *ConversationService) BroadcastTypingStatus(typingMsg TypingMessage) {
 // HandleWebSocket creates an HTTP handler function to manage WebSocket connections
 func HandleWebSocket(cs *ConversationService) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
-		// Upgrade the HTTP server connection to the WebSocket protocol
+		// Upgrade the HTTP server connection to the WebSocket protocol.
 		conn, err := upgrader.Upgrade(w, r, nil)
 		if err != nil {
 			log.Println("Upgrade to websocket failed:", err)
@@ -148,7 +148,7 @@ func HandleWebSocket(cs *ConversationService) http.HandlerFunc {
 		}
 		defer conn.Close()
 
-		// Retrieve the chat room ID from the URL query parameters
+		// Retrieve the chat room ID from the URL query parameters.
 		chatRoomID := r.URL.Query().Get("room_id")
 		// If there is no chatRoomID, add the connection to all chat rooms.
 		if chatRoomID == "" {
@@ -156,8 +156,8 @@ func HandleWebSocket(cs *ConversationService) http.HandlerFunc {
 			defer cs.cm.RemoveGlobalConnection(conn)
 		} else {
 			// If a chatRoomID is provided, add the connection to that specific chat room.
-			cs.cm.AddConnectionToRoom(chatRoomID, conn)
-			defer cs.cm.RemoveConnectionFromRoom(chatRoomID, conn)
+			cs.cm.AddConnection(chatRoomID, conn)
+			defer cs.cm.RemoveConnection(chatRoomID, conn)
 		}
 
 		// Loop to continually read messages from the WebSocket connection

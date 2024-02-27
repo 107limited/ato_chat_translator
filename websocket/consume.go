@@ -1,7 +1,7 @@
 package websocket
 
 import (
-	"ato_chat/types"
+	"ato_chat/models"
 	"encoding/json"
 	"net/http"
 	"time"
@@ -42,7 +42,7 @@ func HandleWSL(w http.ResponseWriter, r *http.Request) {
 		}
 
 		// Unmarshal JSON from the incoming message
-		var message *types.IMessage
+		var message *models.IMessage
 		err = json.Unmarshal(msg, &message)
 		if err != nil {
 			// Handle error
@@ -51,7 +51,7 @@ func HandleWSL(w http.ResponseWriter, r *http.Request) {
 
 		
 
-		parseMessage := MessageFmt{
+		parseMessage := Messagefmt{
 			Id:        message.Id,
 			ToId:      message.ToId,
 			UserId:    message.UserId,
