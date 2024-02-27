@@ -13,6 +13,7 @@ import (
 	"strconv"
 
 	"github.com/gorilla/mux"
+	"github.com/gorilla/websocket"
 	//"github.com/labstack/gommon/log"
 	log "github.com/sirupsen/logrus"
 )
@@ -22,6 +23,7 @@ func init() {
 	log.SetReportCaller(true)
 	log.SetLevel(log.DebugLevel) // or whatever level you need
 }
+
 // ChatRoomHandler adalah struct yang menangani request terkait chat room.
 type ChatRoomHandler struct {
 	DB *sql.DB
@@ -57,35 +59,34 @@ func (h *ChatRoomHandler) isUserExists(userID int) bool {
 }
 
 func (h *ChatRoomHandler) CheckOrCreateChatRoom(user1ID, user2ID int) (int64, error) {
-    var chatRoomID int64
+	var chatRoomID int64
 
-    // Cek apakah chat room sudah ada
-    queryCheck := `SELECT id FROM chat_room WHERE (user1_id = ? AND user2_id = ?) OR (user1_id = ? AND user2_id = ?) LIMIT 1`
-    err := h.DB.QueryRow(queryCheck, user1ID, user2ID, user2ID, user1ID).Scan(&chatRoomID)
-    if err != nil && err != sql.ErrNoRows {
-        // Jika terjadi error selain tidak ditemukannya baris
-        return 0, fmt.Errorf("error checking for existing chat room: %v", err)
-    }
-    if chatRoomID > 0 {
-        // Chat room sudah ada
-        return chatRoomID, nil
-    }
+	// Cek apakah chat room sudah ada
+	queryCheck := `SELECT id FROM chat_room WHERE (user1_id = ? AND user2_id = ?) OR (user1_id = ? AND user2_id = ?) LIMIT 1`
+	err := h.DB.QueryRow(queryCheck, user1ID, user2ID, user2ID, user1ID).Scan(&chatRoomID)
+	if err != nil && err != sql.ErrNoRows {
+		// Jika terjadi error selain tidak ditemukannya baris
+		return 0, fmt.Errorf("error checking for existing chat room: %v", err)
+	}
+	if chatRoomID > 0 {
+		// Chat room sudah ada
+		return chatRoomID, nil
+	}
 
-    // Jika tidak ada, buat chat room baru
-    queryCreate := `INSERT INTO chat_room (user1_id, user2_id) VALUES (?, ?)`
-    result, err := h.DB.Exec(queryCreate, user1ID, user2ID)
-    if err != nil {
-        return 0, fmt.Errorf("error creating new chat room: %v", err)
-    }
+	// Jika tidak ada, buat chat room baru
+	queryCreate := `INSERT INTO chat_room (user1_id, user2_id) VALUES (?, ?)`
+	result, err := h.DB.Exec(queryCreate, user1ID, user2ID)
+	if err != nil {
+		return 0, fmt.Errorf("error creating new chat room: %v", err)
+	}
 
-    chatRoomID, err = result.LastInsertId()
-    if err != nil {
-        return 0, fmt.Errorf("error getting new chat room ID: %v", err)
-    }
+	chatRoomID, err = result.LastInsertId()
+	if err != nil {
+		return 0, fmt.Errorf("error getting new chat room ID: %v", err)
+	}
 
-    return chatRoomID, nil
+	return chatRoomID, nil
 }
-
 
 func (h *ChatRoomHandler) CreateChatRoom(w http.ResponseWriter, r *http.Request) {
 	// Extract user IDs from the request
@@ -285,6 +286,49 @@ func (s *Server) GetChatRoomsByUserIDHandler(w http.ResponseWriter, r *http.Requ
 
 	w.Header().Set("Content-Type", "application/json")
 	json.NewEncoder(w).Encode(chatRooms)
+}
+
+// Handler untuk membuat koneksi WebSocket dan mengirim chat rooms
+func (s *Server) ChatRoomsWebSocketHandler(w http.ResponseWriter, r *http.Request) {
+	upgrader := websocket.Upgrader{
+		CheckOrigin: func(r *http.Request) bool {
+			return true // Tidak disarankan untuk produksi!
+		},
+	}
+
+	// Upgrade initial GET request to a websocket
+	ws, err := upgrader.Upgrade(w, r, nil)
+	if err != nil {
+		log.Println(err)
+		return
+	}
+	defer ws.Close()
+
+	vars := mux.Vars(r)
+	userIDStr, ok := vars["user_id"]
+	if !ok {
+		ws.WriteMessage(websocket.TextMessage, []byte("User ID is required"))
+		return
+	}
+
+	userID, err := strconv.Atoi(userIDStr)
+	if err != nil {
+		ws.WriteMessage(websocket.TextMessage, []byte("Invalid user ID"))
+		return
+	}
+
+	chatRooms, err := dbAto.GetChatRoomsByUserID(s.DB, userID)
+	if err != nil {
+		ws.WriteMessage(websocket.TextMessage, []byte(err.Error()))
+		return
+	}
+
+	// Mengirim chat rooms melalui WebSocket
+	err = ws.WriteJSON(chatRooms)
+	if err != nil {
+		log.Println("Failed to send chat rooms over WebSocket:", err)
+		return
+	}
 }
 
 // GetLastMessageByChatRoomIDHandler handles the request to get the last message of a chat room.

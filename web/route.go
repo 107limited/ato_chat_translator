@@ -1,9 +1,9 @@
 package web
 
 //import (
-	//"ato_chat/websocket"
-	
-	//"net/http"
+//"ato_chat/websocket"
+
+//"net/http"
 //)
 
 // initializeRoutes mengatur rute-rute untuk server
@@ -12,10 +12,9 @@ func (s *Server) initializeRoutes() {
 	// Pastikan chatRepo dan connManager sudah diinisialisasi
 	//conversationService := websocket.NewConversationService(chatRepo, connManager)
 	// Setup WebSocket route
-    //s.Router.HandleFunc("/ws", func(w http.ResponseWriter, r *http.Request) {
-    //    websocket.HandleWebSocket(s.ConversationService)(w, r)
-    //}).Methods("GET")
-	
+	//s.Router.HandleFunc("/ws", func(w http.ResponseWriter, r *http.Request) {
+	//    websocket.HandleWebSocket(s.ConversationService)(w, r)
+	//}).Methods("GET")
 
 	// // Rute yang sudah ada
 	s.Router.HandleFunc("/api/conversations", s.SaveConversationHandler).Methods("POST")
@@ -53,5 +52,7 @@ func (s *Server) initializeRoutes() {
 	s.Router.HandleFunc("/api/conversations-by-chat-room-id/{chat_room_id}", s.ChatRoomHandler.GetConversationsByChatRoomHandler).Methods("GET")
 	// GetChatRoom retrieves an existing chat room between two users
 	s.Router.HandleFunc("/api/chatrooms/{user1_id}/{user2_id}", s.ChatRoomHandler.GetChatRoom).Methods("GET")
+	// Di dalam fungsi setup router Anda, tambahkan:
+	s.Router.HandleFunc("/ws/chatrooms/{user_id}", s.ChatRoomsWebSocketHandler)
 
 }
