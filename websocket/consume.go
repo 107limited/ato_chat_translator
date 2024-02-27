@@ -4,7 +4,6 @@ import (
 	"ato_chat/models"
 	"encoding/json"
 	"net/http"
-	"time"
 
 	"github.com/gorilla/websocket"
 )
@@ -20,7 +19,7 @@ import (
 // user_id: number;
 
 type Response struct {
-	Conversations MessageFmt `json:"conversations"`
+	Conversations *models.ConversationWebsocket `json:"conversations"`
 	Sidebar SidebarMessage `json:"sidebar"`
 }
 
@@ -42,7 +41,7 @@ func HandleWSL(w http.ResponseWriter, r *http.Request) {
 		}
 
 		// Unmarshal JSON from the incoming message
-		var message *models.IMessage
+		var message *models.ConversationWebsocket
 		err = json.Unmarshal(msg, &message)
 		if err != nil {
 			// Handle error
@@ -51,40 +50,46 @@ func HandleWSL(w http.ResponseWriter, r *http.Request) {
 
 		
 
-		parseMessage := Messagefmt{
-			Id:        message.Id,
-			ToId:      message.ToId,
-			UserId:    message.UserId,
-			Message:   message.Message,
-			Date:      message.Date,
-			RoomId:    14,
-			CompanyId: 2,
-			CreatedAt: time.Now().UTC().Format(time.RFC3339),
-			English:   "Text",
-			Japanese:  "Con",
-			Speaker:   "ATO",
-			
-		}
+	// 	parseMessage := *models.ConversationsWebsocket{
+	// 		ID :message.Id,        
+	// User1ID :message.UserId,         
+	// User2ID :message.ToId,         
+	// Speaker :,         
+	// CompanyID,       
+	// ChatRoomID,      
+	// OriginalMessage, 
+	// JapaneseText,    
+	// EnglishText,     
+	// Date,        
+	// 	}
 
 		lastmessage := LastMessage{
-			UserID:   parseMessage.UserId,
-			English:  "naoan",
-			Japanese: "aihsd",
-			Date:     int64(message.Date),
+			UserID:   message.UserID,
+			English:  message.EnglishText,
+			Japanese: message.JapaneseText,
+			Date:     message.Date,
+		}
+		
+		var company string
+
+		if message.CompanyID == 1 {
+			 company = "ATO"
+		}else {
+			company = "107"
 		}
 
 		sidebar := SidebarMessage{
-			UserID:      message.UserId,
-			CompanyName: parseMessage.Speaker,
-			Name:        "Test",
-			ChatRoomID:  parseMessage.RoomId,
-			CreatedAt:   parseMessage.CreatedAt,
+			UserID:      message.UserID2,
+			CompanyName: company,
+			Name:        message.UserName,
+			ChatRoomID:  message.ChatRoomID,
+			CreatedAt:   "", 
 			LastMessage: lastmessage,
 		}
 
 		responseMssg := Response{
 			Sidebar:      sidebar,
-			Conversations: parseMessage,
+			Conversations: message,
 		}
 
 		// Marshal the modified object back to JSON
