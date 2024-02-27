@@ -95,36 +95,29 @@ func (cm *ConnectionManager) RemoveConnectionFromRoom(chatRoomID string, conn *w
     }
 }
 
-// BroadcastMessage mengirimkan pesan ke semua koneksi di room tertentu.
+// BroadcastMessage sends a message to all connections in a specific room.
 func (cm *ConnectionManager) BroadcastMessage(chatRoomID string, message []byte) {
-	log.Printf("called: %v", chatRoomID)
-	cm.mu.Lock()
-	defer cm.mu.Unlock()
+    log.Printf("called: %v", chatRoomID)
+    cm.mu.Lock()
+    defer cm.mu.Unlock()
 
-	// Kirim pesan ke semua koneksi di room tersebut
-	log.Printf("connection: %v", cm.Connections)
-	for conn := range cm.Connections[chatRoomID] {
-		if err := conn.WriteMessage(websocket.TextMessage, message); err != nil {
-			// Log error atau handle jika diperlukan
-			for conn := range cm.Connections[chatRoomID] {
-				if err := conn.WriteMessage(websocket.TextMessage, message); err != nil {
-					log.Printf("Failed to send message to connection in room %s: %v", chatRoomID, err)
+    // Send the message to all connections in the room
+    log.Printf("connection: %v", cm.Connections)
+    for conn := range cm.Connections[chatRoomID] {
+        if err := conn.WriteMessage(websocket.TextMessage, message); err != nil {
+            // Log the error or handle it as needed
+            // Optionally: Remove the connection that errored from the list of connections.
+            // This might require locking and re-checking since you're modifying the map during iteration.
+            cm.mu.Lock()
+            if _, ok := cm.Connections[chatRoomID][conn]; ok {
+                delete(cm.Connections[chatRoomID], conn)
+                // If needed, perform additional actions such as closing the connection.
+                conn.Close()
+            }
+            cm.mu.Unlock()
 
-					// Opsional: Hapus koneksi yang error dari daftar koneksi.
-					// Ini mungkin memerlukan penguncian dan pengecekan ulang karena Anda mengubah map saat iterasi.
-					cm.mu.Lock()
-					if _, ok := cm.Connections[chatRoomID][conn]; ok {
-						delete(cm.Connections[chatRoomID], conn)
-						// Jika perlu, lakukan tindakan tambahan seperti menutup koneksi.
-						conn.Close()
-					}
-					cm.mu.Unlock()
-
-					// Anda juga bisa memutuskan untuk melakukan tindakan lain, seperti mencoba mengirim pesan error ke klien,
-					// atau melakukan upaya koneksi ulang, tergantung pada kasus penggunaan spesifik Anda.
-				}
-			}
-
-		}
-	}
+            // You could also decide to take other actions, such as trying to send an error message to the client,
+            // or attempting a reconnect, depending on your specific use case.
+        }
+    }
 }
