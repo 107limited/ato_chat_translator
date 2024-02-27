@@ -90,7 +90,7 @@ func main() {
     
     // // Assuming `server.Router` is correctly set up elsewhere:
     server.Router.HandleFunc("/ws", func (w http.ResponseWriter, r *http.Request) {
-	    websocket.HandleWebSocket(cs)(w, r)
+	    websocket.HandleWSL(w,r)
     })
 
 	// Get the server port from the environment or .env file
