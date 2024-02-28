@@ -60,6 +60,48 @@ func HandleWSL(w http.ResponseWriter, r *http.Request) {
 		English:  message.EnglishText,
 		Japanese: message.JapaneseText,
 		Date:     message.Date,
+		lastmessage := LastMessage{
+			UserID:   message.UserID,
+			English:  message.EnglishText,
+			Japanese: message.JapaneseText,
+			Date:     message.Date,
+		}
+		
+		var company string
+
+		if message.CompanyID == 1 {
+			 company = "107"
+		}else {
+			company = "ATO"
+		}
+
+		sidebar := SidebarMessage{
+			UserID:      message.UserID2,
+			CompanyName: company,
+			Name:        message.UserName,
+			ChatRoomID:  message.ChatRoomID,
+			CreatedAt:   "", 
+			LastMessage: lastmessage,
+		}
+
+		responseMssg := Response{
+			Sidebar:      sidebar,
+			Conversations: message,
+		}
+
+		// Marshal the modified object back to JSON
+		responseMsg, err := json.Marshal(responseMssg)
+		if err != nil {
+			// Handle error
+			break
+		}
+
+		// Send the JSON response back to the client
+		err = conn.WriteMessage(websocket.TextMessage, responseMsg)
+		if err != nil {
+			// Handle error
+			break
+		}
 	}
 
 	var company string
