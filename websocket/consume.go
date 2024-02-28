@@ -15,32 +15,42 @@ type Response struct {
 	Sidebar       SidebarMessage                `json:"sidebar"`
 }
 
-func HandleWSL(w http.ResponseWriter, r *http.Request) {
+type WebSocketHandler struct {
+	CS *ConversationService
+}
+
+func (handler *WebSocketHandler) HandleWSL(w http.ResponseWriter, r *http.Request) {
 	conn, err := upgrader.Upgrade(w, r, nil)
-	if err != nil {
-		log.Printf("WebSocket upgrade failed: %v", err)
-		return
-	}
-	defer conn.Close()
-	log.Println("WebSocket connection successfully upgraded.")
+    if err != nil {
+        log.Printf("WebSocket upgrade failed: %v", err)
+        return
+    }
+    defer conn.Close()
+    log.Println("WebSocket connection successfully upgraded.")
 
-	for {
-		_, msg, err := conn.ReadMessage()
-		if err != nil {
-			log.Printf("Error reading message: %v", err)
-			break
-		}
+    for {
+        _, msg, err := conn.ReadMessage()
+        if err != nil {
+            log.Printf("Error reading message: %v", err)
+            break
+        }
 
-		var message *models.ConversationWebsocket
-		err = json.Unmarshal(msg, &message)
-		if err != nil {
-			log.Printf("Error unmarshaling message: %v", err)
-			break
-		}
-		log.Println("Message successfully unmarshaled.")
+        var typingMsg TypingMessage
+        // Coba unmarshal ke TypingMessage terlebih dahulu untuk cek apakah ini adalah pesan mengetik
+        if err := json.Unmarshal(msg, &typingMsg); err == nil && typingMsg.ChatRoomID != "" {
+            // Jika tidak error dan memiliki ChatRoomID, asumsikan ini pesan mengetik
+            log.Printf("Typing message received: %+v\n", typingMsg)
+            handler.CS.BroadcastTypingStatus(typingMsg)
+            continue // Langsung ke iterasi berikutnya, tidak perlu memproses lebih lanjut
+        }
 
-		// Assuming parsing and handling of the message goes here.
-		// Simplified the parsing section for brevity.
+        var message *models.ConversationWebsocket
+        err = json.Unmarshal(msg, &message)
+        if err != nil {
+            log.Printf("Error unmarshaling message: %v", err)
+            break
+        }
+        log.Println("Message successfully unmarshaled.")
 
 		lastMessage := LastMessage{
 			UserID:   message.UserID,
