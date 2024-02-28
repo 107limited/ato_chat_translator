@@ -15,7 +15,6 @@ type Response struct {
 	Sidebar       SidebarMessage                `json:"sidebar"`
 }
 
-
 func HandleWSL(w http.ResponseWriter, r *http.Request) {
 	conn, err := upgrader.Upgrade(w, r, nil)
 	if err != nil {
@@ -40,39 +39,21 @@ func HandleWSL(w http.ResponseWriter, r *http.Request) {
 		}
 		log.Println("Message successfully unmarshaled.")
 
-		
+		// Assuming parsing and handling of the message goes here.
+		// Simplified the parsing section for brevity.
 
-	// 	parseMessage := *models.ConversationsWebsocket{
-	// 		ID :message.Id,        
-	// User1ID :message.UserId,         
-	// User2ID :message.ToId,         
-	// Speaker :,         
-	// CompanyID,       
-	// ChatRoomID,      
-	// OriginalMessage, 
-	// JapaneseText,    
-	// EnglishText,     
-	// Date,        
-	// 	}
-
-	lastMessage := LastMessage{
-		UserID:   message.UserID,
-		English:  message.EnglishText,
-		Japanese: message.JapaneseText,
-		Date:     message.Date,
-		lastmessage := LastMessage{
+		lastMessage := LastMessage{
 			UserID:   message.UserID,
 			English:  message.EnglishText,
 			Japanese: message.JapaneseText,
 			Date:     message.Date,
 		}
-		
-		var company string
 
+		var company string
 		if message.CompanyID == 1 {
-			 company = "107"
-		}else {
 			company = "ATO"
+		} else {
+			company = "107"
 		}
 
 		sidebar := SidebarMessage{
@@ -80,62 +61,26 @@ func HandleWSL(w http.ResponseWriter, r *http.Request) {
 			CompanyName: company,
 			Name:        message.UserName,
 			ChatRoomID:  message.ChatRoomID,
-			CreatedAt:   "", 
-			LastMessage: lastmessage,
+			CreatedAt:   "",
+			LastMessage: lastMessage,
 		}
 
-		responseMssg := Response{
-			Sidebar:      sidebar,
+		responseMsg := Response{
+			Sidebar:       sidebar,
 			Conversations: message,
 		}
 
-		// Marshal the modified object back to JSON
-		responseMsg, err := json.Marshal(responseMssg)
+		responseJSON, err := json.Marshal(responseMsg)
 		if err != nil {
-			// Handle error
+			log.Printf("Error marshaling response: %v", err)
 			break
 		}
 
-		// Send the JSON response back to the client
-		err = conn.WriteMessage(websocket.TextMessage, responseMsg)
+		err = conn.WriteMessage(websocket.TextMessage, responseJSON)
 		if err != nil {
-			// Handle error
+			log.Printf("Error sending message: %v", err)
 			break
 		}
+		log.Println("Message successfully sent to the client.")
 	}
-
-	var company string
-	if message.CompanyID == 1 {
-		company = "ATO"
-	} else {
-		company = "107"
-	}
-
-	sidebar := SidebarMessage{
-		UserID:      message.UserID2,
-		CompanyName: company,
-		Name:        message.UserName,
-		ChatRoomID:  message.ChatRoomID,
-		CreatedAt:   "",
-		LastMessage: lastMessage,
-	}
-
-	responseMsg := Response{
-		Sidebar:       sidebar,
-		Conversations: message,
-	}
-
-	responseJSON, err := json.Marshal(responseMsg)
-	if err != nil {
-		log.Printf("Error marshaling response: %v", err)
-		break
-	}
-
-	err = conn.WriteMessage(websocket.TextMessage, responseJSON)
-	if err != nil {
-		log.Printf("Error sending message: %v", err)
-		break
-	}
-	log.Println("Message successfully sent to the client.")
-}
 }
