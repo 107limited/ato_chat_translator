@@ -50,19 +50,6 @@ func HandleWSL(w http.ResponseWriter, r *http.Request) {
 
 		
 
-	// 	parseMessage := *models.ConversationsWebsocket{
-	// 		ID :message.Id,        
-	// User1ID :message.UserId,         
-	// User2ID :message.ToId,         
-	// Speaker :,         
-	// CompanyID,       
-	// ChatRoomID,      
-	// OriginalMessage, 
-	// JapaneseText,    
-	// EnglishText,     
-	// Date,        
-	// 	}
-
 		lastmessage := LastMessage{
 			UserID:   message.UserID,
 			English:  message.EnglishText,
@@ -70,17 +57,12 @@ func HandleWSL(w http.ResponseWriter, r *http.Request) {
 			Date:     message.Date,
 		}
 		
-		var company string
 
-		if message.CompanyID == 1 {
-			 company = "107"
-		}else {
-			company = "ATO"
-		}
+	
 
 		sidebar := SidebarMessage{
 			UserID:      message.UserID2,
-			CompanyName: company,
+			CompanyName: message.CompanyName,
 			Name:        message.UserName,
 			ChatRoomID:  message.ChatRoomID,
 			CreatedAt:   "", 
