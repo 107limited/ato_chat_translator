@@ -101,7 +101,7 @@ func main() {
 	log.Infof("Server is running on port %s...", port)
 
 	log.Fatal(http.ListenAndServe(":"+port, handlers.CORS(
-		handlers.AllowedOrigins([]string{"http://localhost:5173", "https://ato-puce.vercel.app", "https://chat-ato.vercel.app"}),
+		handlers.AllowedOrigins([]string{"http://localhost:5173", "https://ato-puce.vercel.app", "https://chat-ato.vercel.app", "https://t-chat.107.jp"}),
 		handlers.AllowedMethods([]string{"GET", "POST", "DELETE", "PUT", "OPTIONS"}),
 		handlers.AllowedHeaders([]string{"X-Requested-With", "Content-Type", "Authorization"}),
 	)(server.Router)))
