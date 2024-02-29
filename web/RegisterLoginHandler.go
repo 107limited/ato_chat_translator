@@ -3,6 +3,8 @@ package web
 import (
 	jwtforreg "ato_chat/JwtForReg"
 	"ato_chat/dbAto"
+	"sync"
+
 	//"ato_chat/jwt"
 	"ato_chat/models"
 	"encoding/json"
@@ -10,7 +12,9 @@ import (
 	"log"
 	"strconv"
 	"time"
+
 	"github.com/google/uuid"
+	"golang.org/x/net/websocket"
 
 	"net/http"
 
@@ -25,6 +29,7 @@ func generateUniqueKey() string {
 	}
 	return newUUID.String()
 }
+
 var temporaryStorage = make(map[string]string)
 
 // saveToTemporaryStorage saves a value with a unique key to temporary storage
@@ -200,6 +205,27 @@ func (s *Server) PersonalDataHandler(w http.ResponseWriter, r *http.Request) {
 	w.WriteHeader(http.StatusOK)
 	json.NewEncoder(w).Encode(response)
 
+}
+
+// Misalkan Anda memiliki ConnectionManager yang sudah diperluas seperti ini:
+type ConnectionManager struct {
+    Connections map[string]map[*websocket.Conn]struct{}
+    UserConnections map[int]*websocket.Conn // Mapping dari userID ke WebSocket connection
+    mu sync.Mutex
+}
+
+// Fungsi untuk menandai pengguna sebagai online dan menyimpan koneksi WebSocket mereka
+func (manager *ConnectionManager) SetUserOnline(userID int, conn *websocket.Conn) {
+    manager.mu.Lock()
+    defer manager.mu.Unlock()
+    manager.UserConnections[userID] = conn
+}
+
+// Fungsi untuk menandai pengguna sebagai offline
+func (manager *ConnectionManager) SetUserOffline(userID int) {
+    manager.mu.Lock()
+    defer manager.mu.Unlock()
+    delete(manager.UserConnections, userID)
 }
 
 func (s *Server) LoginUserHandler(w http.ResponseWriter, r *http.Request) {

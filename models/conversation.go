@@ -21,20 +21,6 @@ type Conversation struct {
 }
 
 
-type ConversationWebsocket struct {
-	ID           int    `json:"id"`
-	JapaneseText string `json:"japanese_text"`
-	EnglishText  string `json:"english_text"`
-	Speaker      string `json:"speaker"`
-	UserID       int    `json:"user_id"`
-	UserID2       int    `json:"user2_id"`
-	CompanyID    int    `json:"company_id"`
-	ChatRoomID        int       `json:"chat_room_id"`
-	CreatedAt         string `json:"created_at"`
-	Date              int64     `json:"date"`
-	UserName      string    `json:"user_name"`
-	
-}
 
 
 // TranslationRequest represents the JSON structure for translation request
@@ -93,4 +79,3 @@ type ConversationDetail struct {
 	CompanyName       string `json:"company_name"`
 	// Exclude ChatRoomID if it's not needed for this response
 }
-

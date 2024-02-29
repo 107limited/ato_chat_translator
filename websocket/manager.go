@@ -2,6 +2,7 @@
 package websocket
 
 import (
+	"encoding/json"
 	"log"
 	"sync"
 	"time"
@@ -39,21 +40,24 @@ type Messagefmt struct {
 	Speaker   string    `json:"speaker"`
 }
 
-// ConnectionManager manages WebSocket connections, both globally and per chat room.
 type ConnectionManager struct {
-	Connections         map[string]map[*websocket.Conn]struct{} // Room-specific connections
-	GlobalConnections   map[*websocket.Conn]struct{}            // Global connections
-	connectionsMu       sync.Mutex                              // Mutex for room-specific connections
-	globalConnectionsMu sync.Mutex                              // Mutex for global connections
+    Connections         map[string]map[*websocket.Conn]struct{} // Room-specific connections
+    GlobalConnections   map[*websocket.Conn]struct{}            // Global connections
+    UserConnections     map[int]*websocket.Conn                 // User ID to connection
+    connectionsMu       sync.Mutex                              // Mutex for room-specific connections
+    globalConnectionsMu sync.Mutex                              // Mutex for global connections
+    userConnectionsMu   sync.Mutex                              // Mutex for user connections
 }
 
 // NewConnectionManager initializes and returns a new instance of ConnectionManager.
 func NewConnectionManager() *ConnectionManager {
-	return &ConnectionManager{
-		Connections:       make(map[string]map[*websocket.Conn]struct{}),
-		GlobalConnections: make(map[*websocket.Conn]struct{}),
-	}
+    return &ConnectionManager{
+        Connections:       make(map[string]map[*websocket.Conn]struct{}),
+        GlobalConnections: make(map[*websocket.Conn]struct{}),
+        UserConnections:   make(map[int]*websocket.Conn),
+    }
 }
+
 
 // AddConnection adds a new connection to a specific chat room.
 func (cm *ConnectionManager) AddConnection(chatRoomID string, conn *websocket.Conn) {
@@ -112,4 +116,37 @@ func (cm *ConnectionManager) BroadcastMessage(chatRoomID string, message []byte)
 			cm.RemoveConnection(chatRoomID, conn)
 		}
 	}
+}
+
+func (cm *ConnectionManager) SetUserOnline(userID int, conn *websocket.Conn) {
+    cm.userConnectionsMu.Lock()
+    cm.UserConnections[userID] = conn
+    cm.userConnectionsMu.Unlock()
+    cm.broadcastOnlineStatus(userID, true)
+}
+
+func (cm *ConnectionManager) SetUserOffline(userID int) {
+    cm.userConnectionsMu.Lock()
+    delete(cm.UserConnections, userID)
+    cm.userConnectionsMu.Unlock()
+    cm.broadcastOnlineStatus(userID, false)
+}
+
+func (cm *ConnectionManager) broadcastOnlineStatus(userID int, isOnline bool) {
+    status := OnlineStatus{
+        UserID:   userID,
+        IsOnline: isOnline,
+    }
+    statusMsg, err := json.Marshal(status)
+    if err != nil {
+        log.Printf("Error marshaling online status: %v", err)
+        return
+    }
+    cm.globalConnectionsMu.Lock()
+    defer cm.globalConnectionsMu.Unlock()
+    for conn := range cm.GlobalConnections {
+        if err := conn.WriteMessage(websocket.TextMessage, statusMsg); err != nil {
+            log.Printf("Error sending online status to global connections: %v", err)
+        }
+    }
 }

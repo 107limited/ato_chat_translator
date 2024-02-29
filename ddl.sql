@@ -58,3 +58,12 @@ SELECT users.id, companies.company_name, users.name, chat_room.id AS chat_room_i
     WHERE users.id = 5
     GROUP BY chat_room.id
     ORDER BY date DESC;
+
+
+-- Untuk Truncate/Hapus isi Table
+SET FOREIGN_KEY_CHECKS = 0;
+TRUNCATE TABLE users;
+TRUNCATE TABLE chat_room;
+TRUNCATE TABLE conversations;
+SET FOREIGN_KEY_CHECKS = 1;
+

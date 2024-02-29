@@ -65,6 +65,12 @@ type TypingMessage struct {
 	IsTyping   bool   `json:"isTyping"`
 }
 
+type OnlineStatus struct {
+    UserID    int  `json:"user_id"`
+    IsOnline  bool `json:"is_online"`
+}
+
+
 // NewConversationService creates a new instance of ConversationService
 func NewConversationService(repo chat.ConversationRepository, cm *ConnectionManager) *ConversationService {
 	return &ConversationService{

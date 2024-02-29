@@ -3,94 +3,89 @@ package websocket
 import (
 	"ato_chat/models"
 	"encoding/json"
-	"log"
 	"net/http"
 
 	"github.com/gorilla/websocket"
 )
 
-// Response struct as provided.
+// chat_room_id: number;
+// company_id: number;
+// created_at: string;
+// date: number;
+// english_text: string;
+// id: number;
+// japanese_text: string;
+// speaker: string;
+// user_id: number;
+
 type Response struct {
 	Conversations *models.ConversationWebsocket `json:"conversations"`
-	Sidebar       SidebarMessage                `json:"sidebar"`
+	Sidebar SidebarMessage `json:"sidebar"`
 }
 
-type WebSocketHandler struct {
-	CS *ConversationService
-}
 
-func (handler *WebSocketHandler) HandleWSL(w http.ResponseWriter, r *http.Request) {
+func HandleWSL(w http.ResponseWriter, r *http.Request) {
+	
 	conn, err := upgrader.Upgrade(w, r, nil)
-    if err != nil {
-        log.Printf("WebSocket upgrade failed: %v", err)
-        return
-    }
-    defer conn.Close()
-    log.Println("WebSocket connection successfully upgraded.")
+	if err != nil {
+		// Handle error
+		return
+	}
+	defer conn.Close()
 
-    for {
-        _, msg, err := conn.ReadMessage()
-        if err != nil {
-            log.Printf("Error reading message: %v", err)
-            break
-        }
+	for {
+		_, msg, err := conn.ReadMessage()
+		if err != nil {
+			// Handle error
+			break
+		}
 
-        var typingMsg TypingMessage
-        // Coba unmarshal ke TypingMessage terlebih dahulu untuk cek apakah ini adalah pesan mengetik
-        if err := json.Unmarshal(msg, &typingMsg); err == nil && typingMsg.ChatRoomID != "" {
-            // Jika tidak error dan memiliki ChatRoomID, asumsikan ini pesan mengetik
-            log.Printf("Typing message received: %+v\n", typingMsg)
-            handler.CS.BroadcastTypingStatus(typingMsg)
-            continue // Langsung ke iterasi berikutnya, tidak perlu memproses lebih lanjut
-        }
+		// Unmarshal JSON from the incoming message
+		var message *models.ConversationWebsocket
+		err = json.Unmarshal(msg, &message)
+		if err != nil {
+			// Handle error
+			break
+		}
 
-        var message *models.ConversationWebsocket
-        err = json.Unmarshal(msg, &message)
-        if err != nil {
-            log.Printf("Error unmarshaling message: %v", err)
-            break
-        }
-        log.Println("Message successfully unmarshaled.")
+		
 
-		lastMessage := LastMessage{
+		lastmessage := LastMessage{
 			UserID:   message.UserID,
 			English:  message.EnglishText,
 			Japanese: message.JapaneseText,
 			Date:     message.Date,
 		}
+		
 
-		var company string
-		if message.CompanyID == 1 {
-			company = "ATO"
-		} else {
-			company = "107"
-		}
+	
 
 		sidebar := SidebarMessage{
 			UserID:      message.UserID2,
-			CompanyName: company,
+			CompanyName: message.CompanyName,
 			Name:        message.UserName,
 			ChatRoomID:  message.ChatRoomID,
-			CreatedAt:   "",
-			LastMessage: lastMessage,
+			CreatedAt:   "", 
+			LastMessage: lastmessage,
 		}
 
-		responseMsg := Response{
-			Sidebar:       sidebar,
+		responseMssg := Response{
+			Sidebar:      sidebar,
 			Conversations: message,
 		}
 
-		responseJSON, err := json.Marshal(responseMsg)
+		// Marshal the modified object back to JSON
+		responseMsg, err := json.Marshal(responseMssg)
 		if err != nil {
-			log.Printf("Error marshaling response: %v", err)
+			// Handle error
 			break
 		}
 
-		err = conn.WriteMessage(websocket.TextMessage, responseJSON)
+		// Send the JSON response back to the client
+		err = conn.WriteMessage(websocket.TextMessage, responseMsg)
 		if err != nil {
-			log.Printf("Error sending message: %v", err)
+			// Handle error
 			break
 		}
-		log.Println("Message successfully sent to the client.")
 	}
 }
