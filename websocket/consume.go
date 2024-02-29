@@ -3,6 +3,7 @@ package websocket
 import (
 	"ato_chat/models"
 	"encoding/json"
+	"log"
 	"net/http"
 
 	"github.com/gorilla/websocket"
@@ -20,35 +21,32 @@ import (
 
 type Response struct {
 	Conversations *models.ConversationWebsocket `json:"conversations"`
-	Sidebar SidebarMessage `json:"sidebar"`
+	Sidebar       SidebarMessage                `json:"sidebar"`
 }
 
-
 func HandleWSL(w http.ResponseWriter, r *http.Request) {
-	
 	conn, err := upgrader.Upgrade(w, r, nil)
 	if err != nil {
-		// Handle error
+		log.Printf("Error upgrading to WebSocket: %v", err)
 		return
 	}
 	defer conn.Close()
+	log.Println("WebSocket connection established.")
 
 	for {
 		_, msg, err := conn.ReadMessage()
 		if err != nil {
-			// Handle error
+			log.Printf("Error reading WebSocket message: %v", err)
 			break
 		}
 
-		// Unmarshal JSON from the incoming message
 		var message *models.ConversationWebsocket
 		err = json.Unmarshal(msg, &message)
 		if err != nil {
-			// Handle error
+			log.Printf("Error unmarshaling message: %v", err)
 			break
 		}
-
-		
+		log.Println("Received and unmarshaled message successfully.")
 
 		lastmessage := LastMessage{
 			UserID:   message.UserID,
@@ -56,36 +54,32 @@ func HandleWSL(w http.ResponseWriter, r *http.Request) {
 			Japanese: message.JapaneseText,
 			Date:     message.Date,
 		}
-		
-
-	
 
 		sidebar := SidebarMessage{
 			UserID:      message.UserID2,
 			CompanyName: message.CompanyName,
 			Name:        message.UserName,
 			ChatRoomID:  message.ChatRoomID,
-			CreatedAt:   "", 
+			CreatedAt:   "", // consider using time.Now().Format(...) if you want to include the current time
 			LastMessage: lastmessage,
 		}
 
 		responseMssg := Response{
-			Sidebar:      sidebar,
+			Sidebar:       sidebar,
 			Conversations: message,
 		}
 
-		// Marshal the modified object back to JSON
 		responseMsg, err := json.Marshal(responseMssg)
 		if err != nil {
-			// Handle error
+			log.Printf("Error marshaling response message: %v", err)
 			break
 		}
 
-		// Send the JSON response back to the client
 		err = conn.WriteMessage(websocket.TextMessage, responseMsg)
 		if err != nil {
-			// Handle error
+			log.Printf("Error sending response message: %v", err)
 			break
 		}
+		log.Println("Response message sent successfully.")
 	}
 }
