@@ -25,45 +25,45 @@ type Response struct {
 	Sidebar SidebarMessage `json:"sidebar"`
 }
 
+
+
 var rooms = make(map[string]map[*websocket.Conn]bool)
+
 
 func HandleWSL(w http.ResponseWriter, r *http.Request) {
 
 	roomId := r.URL.Query().Get("roomId")
+    conn, err := upgrader.Upgrade(w, r, nil)
+    if err != nil {
+        log.Printf("Failed to upgrade to websocket: %v", err)
+        http.Error(w, "Could not open websocket connection", http.StatusBadRequest)
+        return
+    }
+    defer conn.Close()
 
-	
-	conn, err := upgrader.Upgrade(w, r, nil)
-	if err != nil {
-		// Handle error
-		return
-	}
-	defer conn.Close()
+    if _, ok := rooms[roomId]; !ok {
+        rooms[roomId] = make(map[*websocket.Conn]bool)
+    }
 
-
-
-	if _,ok := rooms[roomId]; !ok{
-		rooms[roomId]= make(map[*websocket.Conn]bool)
-	}
-
-	rooms[roomId][conn] = true
+    rooms[roomId][conn] = true
+    defer delete(rooms[roomId], conn) // Ensure the connection is removed on disconnect
 
 
 
 	for {
 		_, msg, err := conn.ReadMessage()
-		if err != nil {
-			// Handle error
-			break
-		}
-	
+        if err != nil {
+            if websocket.IsUnexpectedCloseError(err, websocket.CloseGoingAway, websocket.CloseAbnormalClosure) {
+                log.Printf("error: %v", err)
+            }
+            break // Exit the loop if there's an error (e.g., connection closed)
+        }
 
-		// Unmarshal JSON from the incoming message
-		var message *models.ConversationWebsocket
-		err = json.Unmarshal(msg, &message)
-		if err != nil {
-			// Handle error
-			break
-		}
+        var message *models.ConversationWebsocket
+        if err := json.Unmarshal(msg, &message); err != nil {
+            log.Printf("Error unmarshalling message: %v", err)
+            continue // Skip processing this message but continue listening
+        }
 		
 	
 
@@ -100,6 +100,14 @@ func HandleWSL(w http.ResponseWriter, r *http.Request) {
 				Conversations: message,
 			}
 			log.Printf("[HandleMessages] Message getted.")
+
+			responseJSON, err := json.Marshal(responseMssg)
+        if err != nil {
+            log.Printf("Error marshaling response: %v", err)
+            continue // Skip sending this message but continue listening
+        }
+
+        broadcastToRoom(roomId, responseJSON)
 	
 			responseMsg, err := json.Marshal(responseMssg)
 		if err != nil {
@@ -119,6 +127,8 @@ func HandleWSL(w http.ResponseWriter, r *http.Request) {
 
 	}
 
+	
+
 		// for c := range rooms[roomId]{
 		// 	if err := c.WriteMessage(websocket.TextMessage,responseMsg); err != nil{
 		// 		fmt.Println("Error writing message",err)
@@ -137,6 +147,16 @@ func HandleWSL(w http.ResponseWriter, r *http.Request) {
 		// }
 }
 
+// Broadcast the message to all clients in the room
+func broadcastToRoom(roomId string, message []byte) {
+    for conn := range rooms[roomId] {
+        if err := conn.WriteMessage(websocket.TextMessage, message); err != nil {
+            log.Printf("Error broadcasting to room %s, err: %v", roomId, err)
+            delete(rooms[roomId], conn)
+            conn.Close()
+        }
+    }
+}
 // func HandleMessages(){
 // 	for {
 // 		log.Printf("[HandleMessages] Looking for messages.")
