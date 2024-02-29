@@ -88,17 +88,11 @@ func main() {
     server.ConnectionManager = cm
     //wsHandler := websocket.HandleWebSocket(conversationService)
     
-    // Membuat instansi dari WebSocketHandler
-    wsHandler := &websocket.WebSocketHandler{
-        // inisialisasi jika perlu
-    }
-
-    // Menggunakan metode HandleWSL dari instansi wsHandler sebagai handler untuk rute "/ws"
-    http.HandleFunc("/ws", func(w http.ResponseWriter, r *http.Request) {
-        wsHandler.HandleWSL(w, r)
+    // // Assuming `server.Router` is correctly set up elsewhere:
+    server.Router.HandleFunc("/ws", func (w http.ResponseWriter, r *http.Request) {
+	    websocket.HandleWSL(w,r)
     })
 
-	
 	// Get the server port from the environment or .env file
 	port := os.Getenv("PORT_SERVER")
 	if port == "" {
