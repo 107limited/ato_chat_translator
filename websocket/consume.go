@@ -1,7 +1,6 @@
 package websocket
 
 import (
-	"ato_chat/models"
 	"encoding/json"
 	"fmt"
 	"log"
@@ -20,9 +19,40 @@ import (
 // speaker: string;
 // user_id: number;
 
+type RequestConversation struct {
+	ID           int    `json:"id"`
+	JapaneseText string `json:"japanese_text"`
+	EnglishText  string `json:"english_text"`
+	Speaker      string `json:"speaker"`
+	UserID       int    `json:"user_id"`
+	UserID2      int    `json:"user2_id"`
+	CompanyID    int    `json:"company_id"`
+	ChatRoomID   int    `json:"chat_room_id"`
+	CreatedAt    string `json:"created_at"`
+	Date         int64  `json:"date"`
+	UserName     string `json:"user_name"`
+	CompanyName  string `json:"company_name"`
+	Sidebars	[]SidebarMessage `json:"sidebars"`
+}
+
+type ResponseConversation struct{
+	ID           int    `json:"id"`
+	JapaneseText string `json:"japanese_text"`
+	EnglishText  string `json:"english_text"`
+	Speaker      string `json:"speaker"`
+	UserID       int    `json:"user_id"`
+	CompanyID    int    `json:"company_id"`
+	ChatRoomID   int    `json:"chat_room_id"`
+	CreatedAt    string `json:"created_at"`
+	Date         int64  `json:"date"`
+
+	
+}
+
+
 type Response struct {
-	Conversations *models.ConversationWebsocket `json:"conversations"`
-	Sidebar SidebarMessage `json:"sidebar"`
+	Conversations *ResponseConversation `json:"conversations"`
+	Sidebar *[]SidebarMessage `json:"sidebars"`
 }
 
 var rooms = make(map[string]map[*websocket.Conn]bool)
@@ -52,41 +82,36 @@ func HandleWSL(w http.ResponseWriter, r *http.Request) {
 	for {
 		_, msg, err := conn.ReadMessage()
 		if err != nil {
-			// Handle error
+			log.Println("Request not found")
 			break
 		}
 	
 
 		// Unmarshal JSON from the incoming message
-		var message *models.ConversationWebsocket
+		var message *RequestConversation
 		err = json.Unmarshal(msg, &message)
 		if err != nil {
-			// Handle error
+			log.Println("Request")
 			break
 		}
 		
-	
 
+
+			sidebars := message.Sidebars
+			resMessage := ResponseConversation{
+				ID: message.ID,
+				JapaneseText: message.JapaneseText,
+				EnglishText: message.EnglishText,
+				Speaker: message.Speaker,
+				UserID: message.UserID,
+				CompanyID: message.CompanyID,
+				ChatRoomID: message.ChatRoomID,
+				CreatedAt: "",
+				Date: message.Date,
+			}
 		
-
-		lastmessage := LastMessage{
-			UserID:   message.UserID,
-			English:  message.EnglishText,
-			Japanese: message.JapaneseText,
-			Date:     message.Date,
-		}
+			
 		
-
-	
-
-		sidebar := SidebarMessage{
-			UserID:      message.UserID2,
-			CompanyName: message.CompanyName,
-			Name:        message.UserName,
-			ChatRoomID:  message.ChatRoomID,
-			CreatedAt:   "", 
-			LastMessage: lastmessage,
-		}
 
 		
 
@@ -96,8 +121,8 @@ func HandleWSL(w http.ResponseWriter, r *http.Request) {
 	
 			log.Printf("[HandleMessages] Looking for messages.")
 			responseMssg := Response{
-				Sidebar:      sidebar,
-				Conversations: message,
+				Sidebar : &sidebars,
+				Conversations: &resMessage,
 			}
 			log.Printf("[HandleMessages] Message getted.")
 	
@@ -115,41 +140,7 @@ func HandleWSL(w http.ResponseWriter, r *http.Request) {
 	
 			}
 
-		
-
 	}
 
-		// for c := range rooms[roomId]{
-		// 	if err := c.WriteMessage(websocket.TextMessage,responseMsg); err != nil{
-		// 		fmt.Println("Error writing message",err)
-		// 		delete(rooms[roomId],c)
-		// 	}
-
-		// }
-
 		
-
-		// Send the JSON response back to the client
-		// err = conn.WriteMessage(websocket.TextMessage, responseMsg)
-		// if err != nil {
-		// 	// Handle error
-		// 	break
-		// }
 }
-
-// func HandleMessages(){
-// 	for {
-// 		log.Printf("[HandleMessages] Looking for messages.")
-// 		messages := <-broadcast
-// 		log.Printf("[HandleMessages] Message getted.")
-
-// 		for c := range rooms[roomId]{
-// 			if err := c.WriteMessage(websocket.TextMessage,responseMsg); err != nil{
-// 				fmt.Println("Error writing message",err)
-// 				delete(rooms[roomId],c)
-// 			}
-
-// 		}
-
-// 	}
-// }

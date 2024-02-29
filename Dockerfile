@@ -10,8 +10,7 @@ COPY ./ .
 
 RUN go get -d -v ./...
 
-RUN go build -o api-chat .
+RUN go build -o ato-chat .
 
-CMD ["./api-chat"]
-
+CMD ["./ato-chat"]
 
