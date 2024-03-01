@@ -32,7 +32,7 @@ type RequestConversation struct {
 	Date         int64  `json:"date"`
 	UserName     string `json:"user_name"`
 	CompanyName  string `json:"company_name"`
-	Sidebars	[]SidebarMessage `json:"sidebars"`
+	Sidebars	*ResponseSidebars `json:"sidebars"`
 }
 
 type ResponseConversation struct{
@@ -49,10 +49,16 @@ type ResponseConversation struct{
 	
 }
 
+type ResponseSidebars struct {
+	ATO *[]SidebarMessage `json:"ato_sidebars"`
+	SNT *[]SidebarMessage `json:"snt_sidebars"`
+}
+
+
 
 type Response struct {
 	Conversations *ResponseConversation `json:"conversations"`
-	Sidebar *[]SidebarMessage `json:"sidebars"`
+	Sidebar *ResponseSidebars `json:"sidebars"`
 }
 
 var rooms = make(map[string]map[*websocket.Conn]bool)
@@ -97,7 +103,10 @@ func HandleWSL(w http.ResponseWriter, r *http.Request) {
 		
 
 
-			sidebars := message.Sidebars
+			sidebars := ResponseSidebars{
+				ATO: message.Sidebars.ATO,
+				SNT: message.Sidebars.SNT,
+			}
 			resMessage := ResponseConversation{
 				ID: message.ID,
 				JapaneseText: message.JapaneseText,
