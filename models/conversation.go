@@ -6,22 +6,20 @@ import (
 )
 
 type Conversation struct {
-	ID           int    `json:"id"`
-	JapaneseText string `json:"japanese_text"`
-	EnglishText  string `json:"english_text"`
-	Speaker      string `json:"speaker"`
-	UserID       int    `json:"user_id"`
-	CompanyID    int    `json:"company_id"`
-	CompanyName  string `json:"company_name"`
+	ID                int       `json:"id"`
+	JapaneseText      string    `json:"japanese_text"`
+	EnglishText       string    `json:"english_text"`
+	Speaker           string    `json:"speaker"`
+	UserID            int       `json:"user_id"`
+	CompanyID         int       `json:"company_id"`
+	CompanyName       string    `json:"company_name"`
 	ChatRoomID        int       `json:"chat_room_id"`
 	OriginalMessage   string    `json:"original_message"`
 	TranslatedMessage string    `json:"translated_message"`
 	CreatedAt         time.Time `json:"created_at"`
 	Date              int64     `json:"date"`
+	ReadMessage       bool      `json:"read_message"`
 }
-
-
-
 
 // TranslationRequest represents the JSON structure for translation request
 type TranslationRequest struct {

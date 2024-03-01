@@ -63,13 +63,12 @@ func main() {
 	chatRoomHandler := web.NewChatRoomHandler(db)
 
 	// Assuming chat.NewConversationRepository and websocket.NewConnectionManager are correctly implemented
-    repo := chat.NewConversationRepository(db) // Creates a new instance of the conversation repository
-    cm := websocket.NewConnectionManager()     // Creates a new instance of the connection manager
+	repo := chat.NewConversationRepository(db) // Creates a new instance of the conversation repository
+	cm := websocket.NewConnectionManager()     // Creates a new instance of the connection manager
 
-    // Initialize ConversationService with the repo and connection manager
-    //cs := websocket.NewConversationService(repo, cm)
+	// Initialize ConversationService with the repo and connection manager
+	//cs := websocket.NewConversationService(repo, cm)
 	cs := websocket.NewConversationService(repo, cm)
-	
 
 	// Create HTTP server
 	server := web.NewServer(db, conversationRepo, gpt4Translator, chatRoomHandler, cs)
@@ -80,19 +79,23 @@ func main() {
 		FullTimestamp: true,
 	})
 
-	
-	
 	// conversationRepo = chat.NewConversationRepository(db)
-    // connectionManager := websocket.NewConnectionManager()
-    // conversationService := websocket.NewConversationService(conversationRepo, cm)
-    server.ConnectionManager = cm
-    //wsHandler := websocket.HandleWebSocket(conversationService)
-    
-    // // Assuming `server.Router` is correctly set up elsewhere:
-    server.Router.HandleFunc("/ws", func (w http.ResponseWriter, r *http.Request) {
-	    websocket.HandleWSL(w,r)
-    })
+	// connectionManager := websocket.NewConnectionManager()
+	// conversationService := websocket.NewConversationService(conversationRepo, cm)
+	server.ConnectionManager = cm
+	//wsHandler := websocket.HandleWebSocket(conversationService)
+	// Membuat instance WebSocketHandler dengan koneksi database
+    wsHandler := websocket.WebSocketHandler{Db: db} // Pastikan Anda memiliki field `Db` atau `db` di WebSocketHandler
 
+    // Mendaftarkan handler WebSocket
+    //http.HandleFunc("/ws", wsHandler.HandleWSL) // Gunakan HandleWSL dengan 'H' besar
+
+
+	// // Assuming `server.Router` is correctly set up elsewhere:
+	// server.Router.HandleFunc("/ws", func(w http.ResponseWriter, r *http.Request) {
+	// 	websocket.HandleWSL(w, r)
+	// })
+	server.Router.HandleFunc("/ws", wsHandler.HandleWSL)
 	// Get the server port from the environment or .env file
 	port := os.Getenv("PORT_SERVER")
 	if port == "" {

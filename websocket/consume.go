@@ -2,8 +2,10 @@ package websocket
 
 import (
 	"ato_chat/models"
+	"database/sql"
 	"encoding/json"
-	
+	"fmt"
+
 	"log"
 	"net/http"
 	"sync"
@@ -16,10 +18,19 @@ type Response struct {
 	Sidebar       SidebarMessage                `json:"sidebar"`
 }
 
+type WebSocketMessage struct {
+	Indicator string `json:"indicator"`
+	MessageID int    `json:"message_id"`
+}
+
+type WebSocketHandler struct {
+    Db *sql.DB
+}
+
 var rooms = make(map[string]map[*websocket.Conn]bool)
 var roomsMutex = &sync.Mutex{} // Mutex untuk mengelola akses konkuren ke map rooms
 
-func HandleWSL(w http.ResponseWriter, r *http.Request) {
+func (wsh *WebSocketHandler) HandleWSL(w http.ResponseWriter, r *http.Request) {
 
 	roomId := r.URL.Query().Get("roomId")
 	conn, err := upgrader.Upgrade(w, r, nil)
@@ -31,23 +42,42 @@ func HandleWSL(w http.ResponseWriter, r *http.Request) {
 	defer conn.Close()
 
 	roomsMutex.Lock() // Lock mutex sebelum mengakses atau memodifikasi map rooms
-    if _, ok := rooms[roomId]; !ok {
-        rooms[roomId] = make(map[*websocket.Conn]bool)
-    }
-    rooms[roomId][conn] = true
-    roomsMutex.Unlock() // Unlock mutex setelah selesai mengakses atau memodifikasi map rooms
+	if _, ok := rooms[roomId]; !ok {
+		rooms[roomId] = make(map[*websocket.Conn]bool)
+	}
+	rooms[roomId][conn] = true
+	roomsMutex.Unlock() // Unlock mutex setelah selesai mengakses atau memodifikasi map rooms
 
-    defer func() {
-        roomsMutex.Lock() // Pastikan mengunci mutex sebelum menghapus koneksi
-        delete(rooms[roomId], conn)
-        roomsMutex.Unlock() // Unlock mutex setelah menghapus koneksi
-    }()
-
-	
-	
+	defer func() {
+		roomsMutex.Lock() // Pastikan mengunci mutex sebelum menghapus koneksi
+		delete(rooms[roomId], conn)
+		roomsMutex.Unlock() // Unlock mutex setelah menghapus koneksi
+	}()
 
 	for {
 		_, msg, err := conn.ReadMessage()
+		if err != nil {
+			log.Printf("error: %v", err)
+			break
+		}
+
+		var wsMsg WebSocketMessage
+		err = json.Unmarshal(msg, &wsMsg)
+		if err != nil {
+			log.Printf("Error unmarshalling message: %v", err)
+			continue
+		}
+
+		if wsMsg.Indicator == "message_read" {
+			// Panggil fungsi untuk merubah status message read menjadi true
+			err = updateReadStatus(wsh.Db, wsMsg.MessageID, true)
+			if err != nil {
+				log.Printf("Failed to update read status: %v", err)
+				// Opsi: kirim pesan error kembali ke client via WebSocket
+				continue
+			}
+		}
+
 		if err != nil {
 			if websocket.IsUnexpectedCloseError(err, websocket.CloseGoingAway, websocket.CloseAbnormalClosure) {
 				log.Printf("error: %v", err)
@@ -94,13 +124,10 @@ func HandleWSL(w http.ResponseWriter, r *http.Request) {
 
 		broadcastToRoom(roomId, responseJSON)
 
-
-		
-		
-
 	}
 
 }
+
 // Broadcast the message to all clients in the room
 func broadcastToRoom(roomId string, message []byte) {
 	for conn := range rooms[roomId] {
@@ -111,6 +138,19 @@ func broadcastToRoom(roomId string, message []byte) {
 		}
 	}
 }
+
+
+
+func updateReadStatus(db *sql.DB, messageID int, readStatus bool) error {
+    query := "UPDATE conversations SET read_message = ? WHERE id = ?"
+    _, err := db.Exec(query, readStatus, messageID)
+    if err != nil {
+        return fmt.Errorf("error executing update query: %v", err)
+    }
+    return nil
+}
+
+
 // for c := range rooms[roomId]{
 // 	if err := c.WriteMessage(websocket.TextMessage,responseMsg); err != nil{
 // 		fmt.Println("Error writing message",err)
@@ -125,7 +165,6 @@ func broadcastToRoom(roomId string, message []byte) {
 // 	// Handle error
 // 	break
 // }
-
 
 // func HandleMessages(){
 // 	for {

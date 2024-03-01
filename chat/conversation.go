@@ -4,6 +4,8 @@ import (
 	"ato_chat/models"
 	"database/sql"
 	"fmt"
+	"log"
+	"time"
 )
 
 // ConversationRepository adalah antarmuka untuk menyimpan dan mengambil percakapan.
@@ -47,7 +49,7 @@ func (cr *conversationRepository) SaveConversation(conversation *models.Conversa
 }
 
 func (cr *conversationRepository) GetAllConversations() ([]*models.Conversation, error) {
-	query := "SELECT * FROM conversations ORDER BY created_at ASC"
+	query := "SELECT id, japanese_text, english_text, user_id, company_id, chat_room_id, created_at, date, speaker, read_message FROM conversations ORDER BY created_at ASC"
 	rows, err := cr.db.Query(query)
 	if err != nil {
 		return nil, err
@@ -56,20 +58,25 @@ func (cr *conversationRepository) GetAllConversations() ([]*models.Conversation,
 
 	var conversations []*models.Conversation
 	for rows.Next() {
-
 		var dateInt64 sql.NullInt64
+		var createdAtString string // Menggunakan string untuk menampung created_at sementara
 		var conv models.Conversation
-		var get models.GetAllConversations
-		err := rows.Scan(&conv.ID, &conv.JapaneseText, &conv.EnglishText, &conv.UserID, &conv.CompanyID, &conv.ChatRoomID, &get.CreatedAt, &dateInt64, &conv.Speaker)
+
+		err := rows.Scan(&conv.ID, &conv.JapaneseText, &conv.EnglishText, &conv.UserID, &conv.CompanyID, &conv.ChatRoomID, &createdAtString, &dateInt64, &conv.Speaker, &conv.ReadMessage)
 
 		if err != nil {
 			return nil, err
 		}
 
+		// Konversi createdAtString ke time.Time
+		conv.CreatedAt, err = time.Parse("2006-01-02 15:04:05", createdAtString)
+		if err != nil {
+			log.Printf("Error parsing created_at: %v", err)
+			// Handle error sesuai kebutuhan
+		}
+
 		if dateInt64.Valid {
 			conv.Date = dateInt64.Int64
-		} else if dateInt64.Int64 == 0 {
-			conv.Date = 0
 		} else {
 			conv.Date = -1
 		}
@@ -79,5 +86,3 @@ func (cr *conversationRepository) GetAllConversations() ([]*models.Conversation,
 
 	return conversations, nil
 }
-
-
