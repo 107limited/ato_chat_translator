@@ -82,7 +82,7 @@ func NewConversationService(repo chat.ConversationRepository, cm *ConnectionMana
 // SaveAndBroadcast saves a conversation and broadcasts it to relevant users
 func (cs *ConversationService) SaveAndBroadcast(conv models.Conversation) error {
 	// Save the conversation
-	err := cs.repo.SaveConversation(&conv)
+	_, err := cs.repo.SaveConversation(&conv)
 	if err != nil {
 		return err
 	}

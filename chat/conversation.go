@@ -10,7 +10,7 @@ import (
 
 // ConversationRepository adalah antarmuka untuk menyimpan dan mengambil percakapan.
 type ConversationRepository interface {
-	SaveConversation(conversation *models.Conversation) error
+	SaveConversation(conversation *models.Conversation) (sql.Result, error)
 	GetAllConversations() ([]*models.Conversation, error)
 }
 
@@ -26,13 +26,13 @@ type conversationRepository struct {
 	db *sql.DB
 }
 
-func (cr *conversationRepository) SaveConversation(conversation *models.Conversation) error {
+func (cr *conversationRepository) SaveConversation(conversation *models.Conversation) (sql.Result, error) {
 	// Query untuk menyimpan percakapan baru
 	query := `INSERT INTO conversations (japanese_text, english_text, user_id, speaker, company_id, chat_room_id, created_at, date) VALUES (?, ?, ?, ?, ?, ?, NOW(), ?)`
 	// Gunakan conversation.Date untuk kolom date, yang sudah dalam format milidetik sejak epoch Unix
-	_, err := cr.db.Exec(query, conversation.JapaneseText, conversation.EnglishText, conversation.UserID, conversation.Speaker, conversation.CompanyID, conversation.ChatRoomID, conversation.Date)
+	res, err := cr.db.Exec(query, conversation.JapaneseText, conversation.EnglishText, conversation.UserID, conversation.Speaker, conversation.CompanyID, conversation.ChatRoomID, conversation.Date)
 	if err != nil {
-		return fmt.Errorf("error executing query: %v", err)
+		return nil, fmt.Errorf("error executing query: %v", err)
 	}
 
 	// Konversi timestamp milidetik ke detik
@@ -42,10 +42,10 @@ func (cr *conversationRepository) SaveConversation(conversation *models.Conversa
 	updateQuery := `UPDATE chat_room SET last_message_date = FROM_UNIXTIME(?) WHERE id = ?`
 	_, err = cr.db.Exec(updateQuery, timestampInSeconds, conversation.ChatRoomID)
 	if err != nil {
-		return fmt.Errorf("error updating last message date in chat_room: %v", err)
+		return nil, fmt.Errorf("error updating last message date in chat_room: %v", err)
 	}
 
-	return nil
+	return res, nil
 }
 
 func (cr *conversationRepository) GetAllConversations() ([]*models.Conversation, error) {

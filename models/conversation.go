@@ -33,7 +33,7 @@ type TranslationRequest struct {
 	JapaneseText    string `json:"japanese_text"`
 	EnglishText     string `json:"english_text"`
 	Date            int64  `json:"date"`
-	MessageID    int    `json:"message_id"` // Tambahkan field ini
+	MessageID       int    `json:"message_id"` // Tambahkan field ini
 }
 
 // You can add a method to validate the struct
@@ -64,7 +64,7 @@ type TranslationResponse struct {
 		CompanyName  string `json:"company_name"`
 		ChatRoomID   int    `json:"chat_room_id"` // Pastikan field ini ada dalam definisi
 		UserID       int    `json:"user_id"`      // Tambahkan field ini
-		
+		MessageID    int    `json:"message_id"`
 	} `json:"conversations"`
 }
 

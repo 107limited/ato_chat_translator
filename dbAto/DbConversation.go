@@ -106,7 +106,7 @@ LEFT JOIN (
         japanese_text,
         user_id,
         date,
-        ROW_NUMBER() OVER(PARTITION BY chat_room_id ORDER BY date DESC) AS rn
+        ROW_NUMBER() OVER(PARTITION BY chat_room_id ORDER BY created_at DESC) AS rn
     FROM 
         conversations
 ) lm ON cr.id = lm.chat_room_id AND lm.rn = 1
@@ -114,7 +114,6 @@ WHERE
     u.id = ?
 ORDER BY 
     lm.date DESC, cr.created_at DESC;
-
 
 `
 
