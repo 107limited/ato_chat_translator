@@ -1,11 +1,8 @@
 package websocket
 
 import (
-	"ato_chat/models"
-	"database/sql"
 	"encoding/json"
 	"fmt"
-
 	"log"
 	"net/http"
 	"sync"
@@ -13,173 +10,143 @@ import (
 	"github.com/gorilla/websocket"
 )
 
+
+
+type RequestConversation struct {
+	ID           int    `json:"id"`
+	JapaneseText string `json:"japanese_text"`
+	EnglishText  string `json:"english_text"`
+	Speaker      string `json:"speaker"`
+	UserID       int    `json:"user_id"`
+	UserID2      int    `json:"user2_id"`
+	CompanyID    int    `json:"company_id"`
+	ChatRoomID   int    `json:"chat_room_id"`
+	CreatedAt    string `json:"created_at"`
+	Date         int64  `json:"date"`
+	UserName     string `json:"user_name"`
+	CompanyName  string `json:"company_name"`
+	Sidebars	*ResponseSidebars `json:"sidebars"`
+}
+
+type ResponseConversation struct{
+	ID           int    `json:"id"`
+	JapaneseText string `json:"japanese_text"`
+	EnglishText  string `json:"english_text"`
+	Speaker      string `json:"speaker"`
+	UserID       int    `json:"user_id"`
+	CompanyID    int    `json:"company_id"`
+	ChatRoomID   int    `json:"chat_room_id"`
+	CreatedAt    string `json:"created_at"`
+	Date         int64  `json:"date"`
+
+	
+}
+
+type ResponseSidebars struct {
+	ATO *[]SidebarMessage `json:"ato_sidebars"`
+	SNT *[]SidebarMessage `json:"snt_sidebars"`
+}
+
+
+
 type Response struct {
-	Conversations *models.ConversationWebsocket `json:"conversations"`
-	Sidebar       SidebarMessage                `json:"sidebar"`
+	Conversations *ResponseConversation `json:"conversations"`
+	Sidebar *ResponseSidebars `json:"sidebars"`
 }
 
-type WebSocketMessage struct {
-	Indicator string `json:"indicator"`
-	MessageID int    `json:"message_id"`
-}
+var client = make(map[string]map[*websocket.Conn]bool)
+var clientMutex = &sync.Mutex{} 
 
-type WebSocketHandler struct {
-    Db *sql.DB
-}
+func HandleWSL(w http.ResponseWriter, r *http.Request) {
 
-var rooms = make(map[string]map[*websocket.Conn]bool)
-var roomsMutex = &sync.Mutex{} // Mutex untuk mengelola akses konkuren ke map rooms
+	userId := r.URL.Query().Get("userId")
 
-func (wsh *WebSocketHandler) HandleWSL(w http.ResponseWriter, r *http.Request) {
-
-	roomId := r.URL.Query().Get("roomId")
+	
 	conn, err := upgrader.Upgrade(w, r, nil)
 	if err != nil {
-		log.Printf("Failed to upgrade to websocket: %v", err)
-		http.Error(w, "Could not open websocket connection", http.StatusBadRequest)
+		log.Printf("Upgraded failed")
 		return
 	}
 	defer conn.Close()
 
-	roomsMutex.Lock() // Lock mutex sebelum mengakses atau memodifikasi map rooms
-	if _, ok := rooms[roomId]; !ok {
-		rooms[roomId] = make(map[*websocket.Conn]bool)
+	clientMutex.Lock() // Lock mutex sebelum mengakses atau memodifikasi map client
+	if _, ok := client[userId]; !ok {
+		client[userId] = make(map[*websocket.Conn]bool)
 	}
-	rooms[roomId][conn] = true
-	roomsMutex.Unlock() // Unlock mutex setelah selesai mengakses atau memodifikasi map rooms
+	client[userId][conn] = true
+	clientMutex.Unlock() // Unlock mutex setelah selesai mengakses atau memodifikasi map client
 
 	defer func() {
-		roomsMutex.Lock() // Pastikan mengunci mutex sebelum menghapus koneksi
-		delete(rooms[roomId], conn)
-		roomsMutex.Unlock() // Unlock mutex setelah menghapus koneksi
+		clientMutex.Lock() // Pastikan mengunci mutex sebelum menghapus koneksi
+		delete(client[userId], conn)
+		clientMutex.Unlock() // Unlock mutex setelah menghapus koneksi
 	}()
+
+
 
 	for {
 		_, msg, err := conn.ReadMessage()
 		if err != nil {
-			log.Printf("error: %v", err)
+			log.Println("Request not found")
 			break
 		}
 	
-
-		var wsMsg WebSocketMessage
-		err = json.Unmarshal(msg, &wsMsg)
+		var message *RequestConversation
+		err = json.Unmarshal(msg, &message)
 		if err != nil {
-			log.Printf("Error unmarshalling message: %v", err)
-			continue
+			log.Println("Request")
+			break
 		}
+		
 
-		if wsMsg.Indicator == "message_read" {
-			// Panggil fungsi untuk merubah status message read menjadi true
-			err = updateReadStatus(wsh.Db, wsMsg.MessageID, true)
-			if err != nil {
-				log.Printf("Failed to update read status: %v", err)
-				// Opsi: kirim pesan error kembali ke client via WebSocket
-				continue
+
+			sidebars := ResponseSidebars{
+				ATO: message.Sidebars.ATO,
+				SNT: message.Sidebars.SNT,
 			}
-		}
-
-		if err != nil {
-			if websocket.IsUnexpectedCloseError(err, websocket.CloseGoingAway, websocket.CloseAbnormalClosure) {
-				log.Printf("error: %v", err)
+			resMessage := ResponseConversation{
+				ID: message.ID,
+				JapaneseText: message.JapaneseText,
+				EnglishText: message.EnglishText,
+				Speaker: message.Speaker,
+				UserID: message.UserID,
+				CompanyID: message.CompanyID,
+				ChatRoomID: message.ChatRoomID,
+				CreatedAt: "",
+				Date: message.Date,
 			}
-			break // Exit the loop if there's an error (e.g., connection closed)
-		}
+		
+			
+		
 
-		var message *models.ConversationWebsocket
-		if err := json.Unmarshal(msg, &message); err != nil {
-			log.Printf("Error unmarshalling message: %v", err)
-			continue // Skip processing this message but continue listening
-		}
-
-		lastmessage := LastMessage{
-			UserID:   message.UserID,
-			English:  message.EnglishText,
-			Japanese: message.JapaneseText,
-			Date:     message.Date,
-		}
-
-		sidebar := SidebarMessage{
-			UserID:      message.UserID2,
-			CompanyName: message.CompanyName,
-			Name:        message.UserName,
-			ChatRoomID:  message.ChatRoomID,
-			CreatedAt:   "",
-			LastMessage: lastmessage,
-		}
+		
 
 		// Marshal the modified object back to JSON
+	
 
-		log.Printf("[HandleMessages] Looking for messages.")
-		responseMssg := Response{
-			Sidebar:       sidebar,
-			Conversations: message,
-		}
-		log.Printf("[HandleMessages] Message getted.")
-
-		responseJSON, err := json.Marshal(responseMssg)
+	
+			log.Printf("[HandleMessages] Looking for messages.")
+			responseMssg := Response{
+				Sidebar : &sidebars,
+				Conversations: &resMessage,
+			}
+			log.Printf("[HandleMessages] Message getted.")
+	
+			responseMsg, err := json.Marshal(responseMssg)
 		if err != nil {
-			log.Printf("Error marshaling response: %v", err)
-			continue // Skip sending this message but continue listening
+			// Handle error
+			break
 		}
 
-		broadcastToRoom(roomId, responseJSON)
+			for c := range client[userId]{
+				if err := c.WriteMessage(websocket.TextMessage,responseMsg); err != nil{
+					fmt.Println("Error writing message",err)
+					delete(client[userId],c)
+				}
+	
+			}
 
 	}
 
+		
 }
-
-// Broadcast the message to all clients in the room
-func broadcastToRoom(roomId string, message []byte) {
-	for conn := range rooms[roomId] {
-		if err := conn.WriteMessage(websocket.TextMessage, message); err != nil {
-			log.Printf("Error broadcasting to room %s, err: %v", roomId, err)
-			delete(rooms[roomId], conn)
-			conn.Close()
-		}
-	}
-}
-
-
-
-func updateReadStatus(db *sql.DB, messageID int, readStatus bool) error {
-    query := "UPDATE conversations SET read_message = ? WHERE id = ?"
-    _, err := db.Exec(query, readStatus, messageID)
-    if err != nil {
-        return fmt.Errorf("error executing update query: %v", err)
-    }
-    return nil
-}
-
-
-// for c := range rooms[roomId]{
-// 	if err := c.WriteMessage(websocket.TextMessage,responseMsg); err != nil{
-// 		fmt.Println("Error writing message",err)
-// 		delete(rooms[roomId],c)
-// 	}
-
-// }
-
-// Send the JSON response back to the client
-// err = conn.WriteMessage(websocket.TextMessage, responseMsg)
-// if err != nil {
-// 	// Handle error
-// 	break
-// }
-
-// func HandleMessages(){
-// 	for {
-// 		log.Printf("[HandleMessages] Looking for messages.")
-// 		messages := <-broadcast
-// 		log.Printf("[HandleMessages] Message getted.")
-
-// 		for c := range rooms[roomId]{
-// 			if err := c.WriteMessage(websocket.TextMessage,responseMsg); err != nil{
-// 				fmt.Println("Error writing message",err)
-// 				delete(rooms[roomId],c)
-// 			}
-
-// 		}
-
-// 	}
-// }
