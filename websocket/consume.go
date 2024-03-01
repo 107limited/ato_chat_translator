@@ -60,6 +60,7 @@ func (wsh *WebSocketHandler) HandleWSL(w http.ResponseWriter, r *http.Request) {
 			log.Printf("error: %v", err)
 			break
 		}
+	
 
 		var wsMsg WebSocketMessage
 		err = json.Unmarshal(msg, &wsMsg)

@@ -33,6 +33,7 @@ type TranslationRequest struct {
 	JapaneseText    string `json:"japanese_text"`
 	EnglishText     string `json:"english_text"`
 	Date            int64  `json:"date"`
+	MessageID    int    `json:"message_id"` // Tambahkan field ini
 }
 
 // You can add a method to validate the struct
@@ -57,12 +58,13 @@ type GetAllConversations struct {
 // TranslationResponse represents the JSON structure for translation response
 type TranslationResponse struct {
 	Conversations []struct {
-		Speaker           string `json:"speaker"`
-		OriginalMessage   string `json:"original_message"`
-		TranslatedMessage string `json:"translated_message"`
-		CompanyName       string `json:"company_name"`
-		ChatRoomID        int    `json:"chat_room_id"` // Pastikan field ini ada dalam definisi
-		UserID            int    `json:"user_id"`      // Tambahkan field ini
+		Speaker      string `json:"speaker"`
+		JapaneseText string `json:"japanese_text"`
+		EnglishText  string `json:"english_text"`
+		CompanyName  string `json:"company_name"`
+		ChatRoomID   int    `json:"chat_room_id"` // Pastikan field ini ada dalam definisi
+		UserID       int    `json:"user_id"`      // Tambahkan field ini
+		
 	} `json:"conversations"`
 }
 

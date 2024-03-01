@@ -194,6 +194,8 @@ func (s *Server) SaveConversationHandler(w http.ResponseWriter, r *http.Request)
 		return
 	}
 
+	
+
 	// Create messageToBroadcast with a random ID and the current time formatted in ISO 8601
 	messageToBroadcast := websocket.Message{
 		ID:                rand.Intn(1000),                                 // Generates a random integer up to 1000
@@ -223,30 +225,32 @@ func (s *Server) SaveConversationHandler(w http.ResponseWriter, r *http.Request)
 	s.ConnectionManager.BroadcastMessage(fmt.Sprintf("%d", chatRoomID), messageBytes)
 	log.Info("Conversation saved and broadcasted successfully")
 
-	translationResponse := models.TranslationResponse{
-		Conversations: []struct {
-			Speaker           string `json:"speaker"`
-			OriginalMessage   string `json:"original_message"`
-			TranslatedMessage string `json:"translated_message"`
-			CompanyName       string `json:"company_name"`
-			ChatRoomID        int    `json:"chat_room_id"`
-			UserID            int    `json:"user_id"` // Perbaikan di sini
-		}{
-			{
-				Speaker:           userName,
-				OriginalMessage:   translationRequest.OriginalMessage,
-				TranslatedMessage: translatedMessage,
-				CompanyName:       companyName,
-				ChatRoomID:        int(chatRoomID),
-				UserID:            translationRequest.User1ID,
-			},
-		},
-	}
+	// Di akhir fungsi SaveConversationHandler, sebelum mengirim response
 
-	// Kirim response ke HTTP client.
-	w.WriteHeader(http.StatusCreated)
-	w.Header().Set("Content-Type", "application/json")
-	json.NewEncoder(w).Encode(translationResponse)
+translationResponse := models.TranslationResponse{
+	Conversations: []struct {
+		Speaker      string `json:"speaker"`
+		JapaneseText string `json:"japanese_text"`
+		EnglishText  string `json:"english_text"`
+		CompanyName  string `json:"company_name"`
+		ChatRoomID   int    `json:"chat_room_id"`
+		UserID       int    `json:"user_id"`
+	}{
+		{
+			Speaker:      userName,
+			JapaneseText: japaneseText,
+			EnglishText:  englishText,
+			CompanyName:  companyName,
+			ChatRoomID:   int(chatRoomID),
+			UserID:       translationRequest.User1ID,
+		},
+	},
+}
+
+// Kirim response ke HTTP client
+w.WriteHeader(http.StatusCreated)
+w.Header().Set("Content-Type", "application/json")
+json.NewEncoder(w).Encode(translationResponse)
 
 }
 
