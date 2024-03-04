@@ -14,4 +14,3 @@ RUN go build -o ato-chat .
 
 CMD ["./ato-chat"]
 
-

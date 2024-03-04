@@ -13,7 +13,8 @@ import (
 	"math/rand"
 	"net/http"
 	"strings"
-	"unicode"
+
+	//"unicode"
 
 	//"unicode"
 
@@ -48,16 +49,16 @@ func NewServer(db *sql.DB, repo chat.ConversationRepository, translator translat
 }
 
 // You'll need to implement the actual language detection logic
-func isJapanese(message string) bool {
-	// Implement language detection logic here
-	// For now, let's assume a simple check where if a message contains any Japanese characters, it's considered Japanese
-	for _, r := range message {
-		if unicode.In(r, unicode.Han, unicode.Hiragana, unicode.Katakana) {
-			return true
-		}
-	}
-	return false
-}
+// func isJapanese(message string) bool {
+// 	// Implement language detection logic here
+// 	// For now, let's assume a simple check where if a message contains any Japanese characters, it's considered Japanese
+// 	for _, r := range message {
+// 		if unicode.In(r, unicode.Han, unicode.Hiragana, unicode.Katakana) {
+// 			return true
+// 		}
+// 	}
+// 	return false
+// }
 
 // SaveConversationHandler menangani permintaan untuk menyimpan percakapan
 func (s *Server) SaveConversationHandler(w http.ResponseWriter, r *http.Request) {
@@ -145,24 +146,24 @@ func (s *Server) SaveConversationHandler(w http.ResponseWriter, r *http.Request)
 
 	// Tentukan bahasa berdasarkan speaker
 	var japaneseText, englishText string
-	// if strings.EqualFold(translationRequest.Speaker, "ato") {
-	// 	japaneseText = translationRequest.OriginalMessage
-	// 	englishText = translatedMessage
-	// } else {
-	// 	englishText = translationRequest.OriginalMessage
-	// 	japaneseText = translatedMessage
-	// }
-
-	// Determine the language based on the speaker or the content of the message
-	if isJapanese(translationRequest.OriginalMessage) {
-		// If the original message is in Japanese, translate it to English
+	if strings.EqualFold(translationRequest.Speaker, "ato") {
 		japaneseText = translationRequest.OriginalMessage
 		englishText = translatedMessage
 	} else {
-		// If the original message is in English, translate it to Japanese
 		englishText = translationRequest.OriginalMessage
 		japaneseText = translatedMessage
 	}
+
+	// // Determine the language based on the speaker or the content of the message
+	// if isJapanese(translationRequest.OriginalMessage) {
+	// 	// If the original message is in Japanese, translate it to English
+	// 	japaneseText = translationRequest.OriginalMessage
+	// 	englishText = translatedMessage
+	// } else {
+	// 	// If the original message is in English, translate it to Japanese
+	// 	englishText = translationRequest.OriginalMessage
+	// 	japaneseText = translatedMessage
+	// }
 
 	// Dapatkan company_name dari database
 	companyName, err := dbAto.GetCompanyNameByID(s.DB, translationRequest.CompanyID)
@@ -187,7 +188,7 @@ func (s *Server) SaveConversationHandler(w http.ResponseWriter, r *http.Request)
 	}
 
 	// Save conversation to repository
-	err = s.ConversationRepo.SaveConversation(&t)
+	sqlResult, err := s.ConversationRepo.SaveConversation(&t)
 	if err != nil {
 		log.WithError(err).Error("Failed to save conversation")
 		http.Error(w, fmt.Sprintf("Failed to save conversation: %v", err), http.StatusInternalServerError)
@@ -197,8 +198,8 @@ func (s *Server) SaveConversationHandler(w http.ResponseWriter, r *http.Request)
 	// Create messageToBroadcast with a random ID and the current time formatted in ISO 8601
 	messageToBroadcast := websocket.Message{
 		ID:                rand.Intn(1000),                                 // Generates a random integer up to 1000
-		JapaneseText:      japaneseText,                               // Use the actual original message content
-		EnglishText:       englishText,              // Use the actual translated message content
+		JapaneseText:      japaneseText,                                    // Use the actual original message content
+		EnglishText:       englishText,                                     // Use the actual translated message content
 		Speaker:           userName,                                        // Use the actual user's name
 		UserID:            translationRequest.User1ID,                      // Use the actual user ID
 		CompanyID:         companyID,                                       // Use the actual company ID obtained from the database or context
@@ -223,27 +224,31 @@ func (s *Server) SaveConversationHandler(w http.ResponseWriter, r *http.Request)
 	s.ConnectionManager.BroadcastMessage(fmt.Sprintf("%d", chatRoomID), messageBytes)
 	log.Info("Conversation saved and broadcasted successfully")
 
+	// Di akhir fungsi SaveConversationHandler, sebelum mengirim response
+	id, _ := sqlResult.LastInsertId()
 	translationResponse := models.TranslationResponse{
 		Conversations: []struct {
-			Speaker           string `json:"speaker"`
-			OriginalMessage   string `json:"original_message"`
-			TranslatedMessage string `json:"translated_message"`
-			CompanyName       string `json:"company_name"`
-			ChatRoomID        int    `json:"chat_room_id"`
-			UserID            int    `json:"user_id"` // Perbaikan di sini
+			Speaker      string `json:"speaker"`
+			JapaneseText string `json:"japanese_text"`
+			EnglishText  string `json:"english_text"`
+			CompanyName  string `json:"company_name"`
+			ChatRoomID   int    `json:"chat_room_id"`
+			UserID       int    `json:"user_id"`
+			MessageID    int    `json:"message_id"`
 		}{
 			{
-				Speaker:           userName,
-				OriginalMessage:   translationRequest.OriginalMessage,
-				TranslatedMessage: translatedMessage,
-				CompanyName:       companyName,
-				ChatRoomID:        int(chatRoomID),
-				UserID:            translationRequest.User1ID,
+				Speaker:      userName,
+				JapaneseText: japaneseText,
+				EnglishText:  englishText,
+				CompanyName:  companyName,
+				ChatRoomID:   int(chatRoomID),
+				UserID:       translationRequest.User1ID,
+				MessageID:    int(id),
 			},
 		},
 	}
 
-	// Kirim response ke HTTP client.
+	// Kirim response ke HTTP client
 	w.WriteHeader(http.StatusCreated)
 	w.Header().Set("Content-Type", "application/json")
 	json.NewEncoder(w).Encode(translationResponse)

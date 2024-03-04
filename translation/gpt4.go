@@ -4,6 +4,7 @@ import (
 	chat "ato_chat/chat"
 	"ato_chat/models"
 	"bytes"
+	"database/sql"
 	"encoding/json"
 	"fmt"
 	"io"
@@ -29,20 +30,20 @@ func (c *GPT4Client) GetAllConversations() ([]*models.Conversation, error) {
 
 
 // SaveConversation implements chat.ConversationRepository.
-func (c *GPT4Client) SaveConversation(conv *models.Conversation) error {
+func (c *GPT4Client) SaveConversation(conv *models.Conversation) (sql.Result, error) {
 	// Buat objek untuk menyimpan percakapan ke dalam database atau penyimpanan lainnya
 
 	// Lakukan penyimpanan ke dalam database atau penyimpanan lainnya
 	// Contoh: Simpan ke dalam database MySQL\
-	err := c.DB.SaveConversation(conv)
+	res, err := c.DB.SaveConversation(conv)
 	if err != nil {
-		return fmt.Errorf("error saving conversation: %v", err)
+		return nil, fmt.Errorf("error saving conversation: %v", err)
 	}
 	fmt.Printf("Saving conversation: %+v\n", conv)
 
 	// Logika penyimpanan berhasil
 	fmt.Printf("Conversation saved: %+v\n", conv)
-	return nil
+	return res, nil
 }
 
 // NewGPT4Client creates a new instance of GPT4Client
