@@ -17,15 +17,7 @@ import (
 	"github.com/gorilla/websocket"
 )
 
-// Setting up the WebSocket upgrader with read and write buffer sizes
-var upgrader = websocket.Upgrader{
-	ReadBufferSize:  1024,
-	WriteBufferSize: 1024,
-	// CheckOrigin returns true to allow all connections regardless of the origin
-	CheckOrigin: func(r *http.Request) bool {
-		return true
-	},
-}
+
 
 // MessageFormat defines the structure of a message
 type MessageFormat struct {

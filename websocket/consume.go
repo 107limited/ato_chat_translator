@@ -5,6 +5,7 @@ import (
 	"net/http"
 	"strconv"
 	"sync" // Import sync package for mutex
+
 	"github.com/gorilla/websocket"
 )
 
@@ -70,21 +71,31 @@ func CreateClient(conn *websocket.Conn, id string) *Client {
 	return &Client{Conn: conn, Id: id}
 }
 
+// Setting up the WebSocket upgrader with read and write buffer sizes
+var upgrader = websocket.Upgrader{
+	ReadBufferSize:  1024,
+	WriteBufferSize: 1024,
+	// CheckOrigin returns true to allow all connections regardless of the origin
+	CheckOrigin: func(r *http.Request) bool {
+		return true
+	},
+}
+
 func HandleWSL(w http.ResponseWriter, r *http.Request) {
 
 	conn, err := upgrader.Upgrade(w, r, nil)
-	if err != nil {
-		log.Printf("Upgraded failed")
-		return
-	}
-	defer conn.Close()
+    if err != nil {
+        log.Printf("Upgrade failed: %v", err)
+        return
+    }
+    defer conn.Close() // Letakkan di awal fungsi untuk memastikan koneksi ditutup ketika fungsi selesai dijalankan
 
-	userId := r.URL.Query().Get("userId")
-	clientsMu.Lock()
-	clients[conn] = userId
-	clientsMu.Unlock()
+    userId := r.URL.Query().Get("userId")
+    clientsMu.Lock()
+    clients[conn] = userId
+    clientsMu.Unlock()
 
-	log.Println("UserId :", userId, "Connected")
+    log.Println("UserId:", userId, "Connected")
 
 	for {
 		var msg RequestConversation
@@ -124,21 +135,15 @@ func HandleMessages() {
 	for {
 		msg := <-broadcast
 
-		parseStr := strconv.Itoa(msg.UserID2)
+		// Konversi UserID dan UserID2 ke string
+		userIDStr := strconv.Itoa(msg.UserID)
+		userID2Str := strconv.Itoa(msg.UserID2)
 
 		clientsMu.Lock()
-		if parseStr != "" {
-			for client, uId := range clients {
-				if uId == parseStr {
-					if err := client.WriteJSON(msg); err != nil {
-						log.Printf("Error: %v", err)
-						client.Close()
-						delete(clients, client)
-					}
-				}
-			}
-		} else {
-			for client := range clients {
+		// Iterasi melalui semua klien untuk menemukan dan mengirim pesan ke UserID dan UserID2
+		for client, uId := range clients {
+			// Cek apakah client adalah UserID atau UserID2
+			if uId == userIDStr || uId == userID2Str {
 				if err := client.WriteJSON(msg); err != nil {
 					log.Printf("Error: %v", err)
 					client.Close()
@@ -149,3 +154,4 @@ func HandleMessages() {
 		clientsMu.Unlock()
 	}
 }
+
