@@ -209,23 +209,23 @@ func (s *Server) PersonalDataHandler(w http.ResponseWriter, r *http.Request) {
 
 // Misalkan Anda memiliki ConnectionManager yang sudah diperluas seperti ini:
 type ConnectionManager struct {
-    Connections map[string]map[*websocket.Conn]struct{}
-    UserConnections map[int]*websocket.Conn // Mapping dari userID ke WebSocket connection
-    mu sync.Mutex
+	Connections     map[string]map[*websocket.Conn]struct{}
+	UserConnections map[int]*websocket.Conn // Mapping dari userID ke WebSocket connection
+	mu              sync.Mutex
 }
 
 // Fungsi untuk menandai pengguna sebagai online dan menyimpan koneksi WebSocket mereka
 func (manager *ConnectionManager) SetUserOnline(userID int, conn *websocket.Conn) {
-    manager.mu.Lock()
-    defer manager.mu.Unlock()
-    manager.UserConnections[userID] = conn
+	manager.mu.Lock()
+	defer manager.mu.Unlock()
+	manager.UserConnections[userID] = conn
 }
 
 // Fungsi untuk menandai pengguna sebagai offline
 func (manager *ConnectionManager) SetUserOffline(userID int) {
-    manager.mu.Lock()
-    defer manager.mu.Unlock()
-    delete(manager.UserConnections, userID)
+	manager.mu.Lock()
+	defer manager.mu.Unlock()
+	delete(manager.UserConnections, userID)
 }
 
 func (s *Server) LoginUserHandler(w http.ResponseWriter, r *http.Request) {

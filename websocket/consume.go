@@ -4,6 +4,7 @@ import (
 	"log"
 	"net/http"
 	"strconv"
+	"sync"
 
 	"github.com/gorilla/websocket"
 )
@@ -59,10 +60,11 @@ type Client struct {
 	Id   string
 }
 
-var clients = make(map[*websocket.Conn]string)
-
-// var broadcast = make(chan Messages)
-var broadcast = make(chan Response)
+var (
+	clients   = make(map[*websocket.Conn]string)
+	clientsMu sync.Mutex // Mutex to synchronize access to clients map
+	broadcast = make(chan Response)
+)
 
 func CreateClient(conn *websocket.Conn, id string) *Client {
 	return &Client{Conn: conn, Id: id}
@@ -78,7 +80,10 @@ func HandleWSL(w http.ResponseWriter, r *http.Request) {
 	defer conn.Close()
 
 	userId := r.URL.Query().Get("userId")
+	// Lock before accessing clients map
+	clientsMu.Lock()
 	clients[conn] = userId
+	clientsMu.Unlock()
 
 	log.Println("UserId :", userId, "Connected")
 
@@ -86,7 +91,10 @@ func HandleWSL(w http.ResponseWriter, r *http.Request) {
 		var msg RequestConversation
 		err := conn.ReadJSON(&msg)
 		if err != nil {
+			// Lock before accessing clients map
+			clientsMu.Lock()
 			delete(clients, conn)
+			clientsMu.Unlock()
 			break
 		}
 
@@ -124,6 +132,8 @@ func HandleMessages() {
 		parseStr := strconv.Itoa(msg.UserID2)
 
 		if parseStr != "" {
+			// Lock before accessing clients map
+			clientsMu.Lock()
 			for client, uId := range clients {
 				if uId == parseStr {
 					if err := client.WriteJSON(msg); err != nil {
@@ -132,14 +142,11 @@ func HandleMessages() {
 						delete(clients, client)
 					}
 				}
-				if err := client.WriteJSON(msg); err != nil {
-					log.Printf("Error: %v", err)
-					client.Close()
-					delete(clients, client)
-				}
 			}
-
+			clientsMu.Unlock()
 		} else {
+			// Lock before accessing clients map
+			clientsMu.Lock()
 			for client := range clients {
 				if err := client.WriteJSON(msg); err != nil {
 					log.Printf("Error: %v", err)
@@ -147,7 +154,7 @@ func HandleMessages() {
 					delete(clients, client)
 				}
 			}
+			clientsMu.Unlock()
 		}
-
 	}
 }
