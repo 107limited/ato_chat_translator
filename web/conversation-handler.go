@@ -10,7 +10,7 @@ import (
 	"database/sql"
 	"encoding/json"
 	"fmt"
-	"math/rand"
+	
 	"net/http"
 	"strings"
 
@@ -196,33 +196,33 @@ func (s *Server) SaveConversationHandler(w http.ResponseWriter, r *http.Request)
 	}
 
 	// Create messageToBroadcast with a random ID and the current time formatted in ISO 8601
-	messageToBroadcast := websocket.Message{
-		ID:                rand.Intn(1000),                                 // Generates a random integer up to 1000
-		JapaneseText:      japaneseText,                                    // Use the actual original message content
-		EnglishText:       englishText,                                     // Use the actual translated message content
-		Speaker:           userName,                                        // Use the actual user's name
-		UserID:            translationRequest.User1ID,                      // Use the actual user ID
-		CompanyID:         companyID,                                       // Use the actual company ID obtained from the database or context
-		ChatRoomID:        int(chatRoomID),                                 // Use the actual chat room ID
-		OriginalMessage:   translationRequest.OriginalMessage,              // The original message text
-		TranslatedMessage: translatedMessage,                               // The translated message text
-		CreatedAt:         time.Now().UTC().Format(time.RFC3339),           // Formats time in ISO 8601
-		Date:              time.Now().UnixNano() / int64(time.Millisecond), // Convert to milliseconds
-	}
+	// messageToBroadcast := websocket.Message{
+	// 	ID:                rand.Intn(1000),                                 // Generates a random integer up to 1000
+	// 	JapaneseText:      japaneseText,                                    // Use the actual original message content
+	// 	EnglishText:       englishText,                                     // Use the actual translated message content
+	// 	Speaker:           userName,                                        // Use the actual user's name
+	// 	UserID:            translationRequest.User1ID,                      // Use the actual user ID
+	// 	CompanyID:         companyID,                                       // Use the actual company ID obtained from the database or context
+	// 	ChatRoomID:        int(chatRoomID),                                 // Use the actual chat room ID
+	// 	OriginalMessage:   translationRequest.OriginalMessage,              // The original message text
+	// 	TranslatedMessage: translatedMessage,                               // The translated message text
+	// 	CreatedAt:         time.Now().UTC().Format(time.RFC3339),           // Formats time in ISO 8601
+	// 	Date:              time.Now().UnixNano() / int64(time.Millisecond), // Convert to milliseconds
+	// }
 
-	// Encode pesan menjadi JSON.
-	messageBytes, err := json.Marshal(messageToBroadcast)
-	if err != nil {
-		log.Printf("Failed to encode message for broadcasting: %v", err)
-		// Handle the error, e.g., by sending an HTTP error response if this is part of an HTTP handler.
-		return
-	}
+	// // Encode pesan menjadi JSON.
+	// messageBytes, err := json.Marshal(messageToBroadcast)
+	// if err != nil {
+	// 	log.Printf("Failed to encode message for broadcasting: %v", err)
+	// 	// Handle the error, e.g., by sending an HTTP error response if this is part of an HTTP handler.
+	// 	return
+	// }
 
-	// Lakukan broadcast pesan ke room yang sesuai.
-	log.Printf("here lies chatroom_id: %v", chatRoomID)
-	log.Printf("here message byte: %v", messageBytes)
-	s.ConnectionManager.BroadcastMessage(fmt.Sprintf("%d", chatRoomID), messageBytes)
-	log.Info("Conversation saved and broadcasted successfully")
+	// // Lakukan broadcast pesan ke room yang sesuai.
+	// log.Printf("here lies chatroom_id: %v", chatRoomID)
+	// log.Printf("here message byte: %v", messageBytes)
+	// s.ConnectionManager.BroadcastMessage(fmt.Sprintf("%d", chatRoomID), messageBytes)
+	// log.Info("Conversation saved and broadcasted successfully")
 
 	// Di akhir fungsi SaveConversationHandler, sebelum mengirim response
 	id, _ := sqlResult.LastInsertId()
