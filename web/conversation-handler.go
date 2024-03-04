@@ -210,7 +210,7 @@ func (s *Server) SaveConversationHandler(w http.ResponseWriter, r *http.Request)
 	// 	Date:              time.Now().UnixNano() / int64(time.Millisecond), // Convert to milliseconds
 	// }
 
-	// // Encode pesan menjadi JSON.
+	// Encode pesan menjadi JSON.
 	// messageBytes, err := json.Marshal(messageToBroadcast)
 	// if err != nil {
 	// 	log.Printf("Failed to encode message for broadcasting: %v", err)

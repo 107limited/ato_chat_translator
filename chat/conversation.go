@@ -49,7 +49,7 @@ func (cr *conversationRepository) SaveConversation(conversation *models.Conversa
 }
 
 func (cr *conversationRepository) GetAllConversations() ([]*models.Conversation, error) {
-	query := "SELECT id, japanese_text, english_text, user_id, company_id, chat_room_id, created_at, date, speaker, read_message FROM conversations ORDER BY created_at ASC"
+	query := "SELECT id, japanese_text, english_text, user_id, company_id, chat_room_id, created_at, date, speaker FROM conversations ORDER BY created_at ASC"
 	rows, err := cr.db.Query(query)
 	if err != nil {
 		return nil, err
@@ -62,7 +62,7 @@ func (cr *conversationRepository) GetAllConversations() ([]*models.Conversation,
 		var createdAtString string // Menggunakan string untuk menampung created_at sementara
 		var conv models.Conversation
 
-		err := rows.Scan(&conv.ID, &conv.JapaneseText, &conv.EnglishText, &conv.UserID, &conv.CompanyID, &conv.ChatRoomID, &createdAtString, &dateInt64, &conv.Speaker, &conv.ReadMessage)
+		err := rows.Scan(&conv.ID, &conv.JapaneseText, &conv.EnglishText, &conv.UserID, &conv.CompanyID, &conv.ChatRoomID, &createdAtString, &dateInt64, &conv.Speaker)
 
 		if err != nil {
 			return nil, err
