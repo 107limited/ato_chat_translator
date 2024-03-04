@@ -85,16 +85,16 @@ func main() {
 	server.ConnectionManager = cm
 	//wsHandler := websocket.HandleWebSocket(conversationService)
 	// Membuat instance WebSocketHandler dengan koneksi database
-    // wsHandler := websocket.WebSocketHandler{Db: db} // Pastikan Anda memiliki field `Db` atau `db` di WebSocketHandler
+	// wsHandler := websocket.WebSocketHandler{Db: db} // Pastikan Anda memiliki field `Db` atau `db` di WebSocketHandler
 
-    // Mendaftarkan handler WebSocket
-    //http.HandleFunc("/ws", wsHandler.HandleWSL) // Gunakan HandleWSL dengan 'H' besar
-
+	// Mendaftarkan handler WebSocket
+	//http.HandleFunc("/ws", wsHandler.HandleWSL) // Gunakan HandleWSL dengan 'H' besar
 
 	// // Assuming `server.Router` is correctly set up elsewhere:
 	server.Router.HandleFunc("/ws", func(w http.ResponseWriter, r *http.Request) {
 		websocket.HandleWSL(w, r)
 	})
+	go websocket.HandleMessages()
 	// server.Router.HandleFunc("/ws", wsHandler.HandleWSL)
 	// Get the server port from the environment or .env file
 	port := os.Getenv("PORT_SERVER")

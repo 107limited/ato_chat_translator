@@ -1,34 +1,30 @@
 package websocket
 
 import (
-	"encoding/json"
-	"fmt"
 	"log"
 	"net/http"
-	"sync"
+	"strconv"
 
 	"github.com/gorilla/websocket"
 )
 
-
-
 type RequestConversation struct {
-	ID           int    `json:"id"`
-	JapaneseText string `json:"japanese_text"`
-	EnglishText  string `json:"english_text"`
-	Speaker      string `json:"speaker"`
-	UserID       int    `json:"user_id"`
-	UserID2      int    `json:"user2_id"`
-	CompanyID    int    `json:"company_id"`
-	ChatRoomID   int    `json:"chat_room_id"`
-	CreatedAt    string `json:"created_at"`
-	Date         int64  `json:"date"`
-	UserName     string `json:"user_name"`
-	CompanyName  string `json:"company_name"`
-	Sidebars	*ResponseSidebars `json:"sidebars"`
+	ID           int               `json:"id"`
+	JapaneseText string            `json:"japanese_text"`
+	EnglishText  string            `json:"english_text"`
+	Speaker      string            `json:"speaker"`
+	UserID       int               `json:"user_id"`
+	UserID2      int               `json:"user2_id"`
+	CompanyID    int               `json:"company_id"`
+	ChatRoomID   int               `json:"chat_room_id"`
+	CreatedAt    string            `json:"created_at"`
+	Date         int64             `json:"date"`
+	UserName     string            `json:"user_name"`
+	CompanyName  string            `json:"company_name"`
+	Sidebars     *ResponseSidebars `json:"sidebars"`
 }
 
-type ResponseConversation struct{
+type ResponseConversation struct {
 	ID           int    `json:"id"`
 	JapaneseText string `json:"japanese_text"`
 	EnglishText  string `json:"english_text"`
@@ -38,8 +34,6 @@ type ResponseConversation struct{
 	ChatRoomID   int    `json:"chat_room_id"`
 	CreatedAt    string `json:"created_at"`
 	Date         int64  `json:"date"`
-
-	
 }
 
 type ResponseSidebars struct {
@@ -47,21 +41,35 @@ type ResponseSidebars struct {
 	SNT *[]SidebarMessage `json:"snt_sidebars"`
 }
 
-
-
 type Response struct {
+	UserID        int                   `json:"user_id"`
+	UserID2       int                   `json:"user2_id"`
 	Conversations *ResponseConversation `json:"conversations"`
-	Sidebar *ResponseSidebars `json:"sidebars"`
+	Sidebar       *ResponseSidebars     `json:"sidebars"`
 }
 
-var client = make(map[string]map[*websocket.Conn]bool)
-var clientMutex = &sync.Mutex{} 
+type Messages struct {
+	UserId       string `json:"userId"`
+	TargetUserId string `json:"TargetuserId"`
+	Contents     string `json:"contents"`
+}
+
+type Client struct {
+	Conn *websocket.Conn
+	Id   string
+}
+
+var clients = make(map[*websocket.Conn]string)
+
+// var broadcast = make(chan Messages)
+var broadcast = make(chan Response)
+
+func CreateClient(conn *websocket.Conn, id string) *Client {
+	return &Client{Conn: conn, Id: id}
+}
 
 func HandleWSL(w http.ResponseWriter, r *http.Request) {
 
-	userId := r.URL.Query().Get("userId")
-
-	
 	conn, err := upgrader.Upgrade(w, r, nil)
 	if err != nil {
 		log.Printf("Upgraded failed")
@@ -69,84 +77,77 @@ func HandleWSL(w http.ResponseWriter, r *http.Request) {
 	}
 	defer conn.Close()
 
-	clientMutex.Lock() // Lock mutex sebelum mengakses atau memodifikasi map client
-	if _, ok := client[userId]; !ok {
-		client[userId] = make(map[*websocket.Conn]bool)
-	}
-	client[userId][conn] = true
-	clientMutex.Unlock() // Unlock mutex setelah selesai mengakses atau memodifikasi map client
+	userId := r.URL.Query().Get("userId")
+	clients[conn] = userId
 
-	defer func() {
-		clientMutex.Lock() // Pastikan mengunci mutex sebelum menghapus koneksi
-		delete(client[userId], conn)
-		clientMutex.Unlock() // Unlock mutex setelah menghapus koneksi
-	}()
-
-
+	log.Println("UserId :", userId, "Connected")
 
 	for {
-		_, msg, err := conn.ReadMessage()
+		var msg RequestConversation
+		err := conn.ReadJSON(&msg)
 		if err != nil {
-			log.Println("Request not found")
-			break
-		}
-	
-		var message *RequestConversation
-		err = json.Unmarshal(msg, &message)
-		if err != nil {
-			log.Println("Request")
-			break
-		}
-		
-
-
-			sidebars := ResponseSidebars{
-				ATO: message.Sidebars.ATO,
-				SNT: message.Sidebars.SNT,
-			}
-			resMessage := ResponseConversation{
-				ID: message.ID,
-				JapaneseText: message.JapaneseText,
-				EnglishText: message.EnglishText,
-				Speaker: message.Speaker,
-				UserID: message.UserID,
-				CompanyID: message.CompanyID,
-				ChatRoomID: message.ChatRoomID,
-				CreatedAt: "",
-				Date: message.Date,
-			}
-		
-			
-		
-
-		
-
-		// Marshal the modified object back to JSON
-	
-
-	
-			log.Printf("[HandleMessages] Looking for messages.")
-			responseMssg := Response{
-				Sidebar : &sidebars,
-				Conversations: &resMessage,
-			}
-			log.Printf("[HandleMessages] Message getted.")
-	
-			responseMsg, err := json.Marshal(responseMssg)
-		if err != nil {
-			// Handle error
+			delete(clients, conn)
 			break
 		}
 
-			for c := range client[userId]{
-				if err := c.WriteMessage(websocket.TextMessage,responseMsg); err != nil{
-					fmt.Println("Error writing message",err)
-					delete(client[userId],c)
-				}
-	
-			}
+		// sidebars := msg.Sidebars
+		resMessage := ResponseConversation{
+			ID:           msg.ID,
+			JapaneseText: msg.JapaneseText,
+			EnglishText:  msg.EnglishText,
+			Speaker:      msg.Speaker,
+			UserID:       msg.UserID,
+			CompanyID:    msg.CompanyID,
+			ChatRoomID:   msg.ChatRoomID,
+			CreatedAt:    "",
+			Date:         msg.Date,
+		}
 
+		responeBroadcast := Response{
+			UserID:        msg.UserID,
+			UserID2:       msg.UserID2,
+			Conversations: &resMessage,
+			Sidebar:       msg.Sidebars,
+		}
+
+		broadcast <- responeBroadcast
 	}
 
-		
+}
+
+func HandleMessages() {
+	for {
+		log.Println("Waiting for message")
+		msg := <-broadcast
+		log.Println("Getting message from :", msg.UserID, "to :", msg.UserID2)
+
+		parseStr := strconv.Itoa(msg.UserID2)
+
+		if parseStr != "" {
+			for client, uId := range clients {
+				if uId == parseStr {
+					if err := client.WriteJSON(msg); err != nil {
+						log.Printf("Error: %v", err)
+						client.Close()
+						delete(clients, client)
+					}
+				}
+				if err := client.WriteJSON(msg); err != nil {
+					log.Printf("Error: %v", err)
+					client.Close()
+					delete(clients, client)
+				}
+			}
+
+		} else {
+			for client := range clients {
+				if err := client.WriteJSON(msg); err != nil {
+					log.Printf("Error: %v", err)
+					client.Close()
+					delete(clients, client)
+				}
+			}
+		}
+
+	}
 }
