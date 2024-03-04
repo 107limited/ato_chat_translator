@@ -136,11 +136,6 @@ func HandleMessages() {
 						delete(clients, client)
 					}
 				}
-				if err := client.WriteJSON(msg); err != nil {
-					log.Printf("Error: %v", err)
-					client.Close()
-					delete(clients, client)
-				}
 			}
 		} else {
 			for client := range clients {
