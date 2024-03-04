@@ -124,46 +124,40 @@ func HandleWSL(w http.ResponseWriter, r *http.Request) {
 }
 
 func HandleMessages() {
-	for {
-		log.Println("Waiting for message")
-		msg := <-broadcast
-		log.Println("Getting message from :", msg.UserID, "to :", msg.UserID2)
+    for {
+        log.Println("Waiting for message")
+        msg := <-broadcast
+        log.Println("Getting message from :", msg.UserID, "to :", msg.UserID2)
 
-		parseStr := strconv.Itoa(msg.UserID2)
+        parseStr := strconv.Itoa(msg.UserID2)
 
-		if parseStr != "" {
-			// Lock before accessing clients map
-			clientsMu.Lock()
-			for client, uId := range clients {
-				if uId == parseStr {
-					if err := client.WriteJSON(msg); err != nil {
-						log.Printf("Error: %v", err)
-						client.Close()
-						delete(clients, client)
-					}
-
-				}
-				if err := client.WriteJSON(msg); err != nil {
-					log.Printf("Error: %v", err)
-					client.Close()
-					delete(clients, client)
-				}
-			}
-			clientsMu.Unlock()
-		} else {
-			// Lock before accessing clients map
-			clientsMu.Lock()
-			for client := range clients {
-				if err := client.WriteJSON(msg); err != nil {
-					log.Printf("Error: %v", err)
-					client.Close()
-					delete(clients, client)
-				}
-
-			}
-		}
-		clientsMu.Unlock()
-	}
+        if parseStr != "" {
+            // Lock before accessing clients map
+            clientsMu.Lock()
+            for client, uId := range clients {
+                if uId == parseStr {
+                    if err := client.WriteJSON(msg); err != nil {
+                        log.Printf("Error: %v", err)
+                        client.Close()
+                        delete(clients, client)
+                    }
+                }
+            }
+            clientsMu.Unlock() // Unlock after finishing access to clients map
+        } else {
+            // Lock before accessing clients map
+            clientsMu.Lock()
+            for client := range clients {
+                if err := client.WriteJSON(msg); err != nil {
+                    log.Printf("Error: %v", err)
+                    client.Close()
+                    delete(clients, client)
+                }
+            }
+            clientsMu.Unlock() // Unlock after finishing access to clients map
+        }
+    }
 }
+
 
 
