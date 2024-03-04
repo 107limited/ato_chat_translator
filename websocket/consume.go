@@ -141,6 +141,12 @@ func HandleMessages() {
 						client.Close()
 						delete(clients, client)
 					}
+
+				}
+				if err := client.WriteJSON(msg); err != nil {
+					log.Printf("Error: %v", err)
+					client.Close()
+					delete(clients, client)
 				}
 			}
 			clientsMu.Unlock()
@@ -153,8 +159,11 @@ func HandleMessages() {
 					client.Close()
 					delete(clients, client)
 				}
+
 			}
-			clientsMu.Unlock()
 		}
+		clientsMu.Unlock()
 	}
 }
+
+
