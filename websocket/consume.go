@@ -79,7 +79,12 @@ var upgrader = websocket.Upgrader{
 	CheckOrigin: func(r *http.Request) bool {
 		return true
 	},
+	
 }
+
+// A map to keep track of user IDs and their connections.
+var userConnections = make(map[int]*websocket.Conn)
+var userConnectionsMu sync.Mutex
 
 func HandleWSL(w http.ResponseWriter, r *http.Request) {
 
@@ -90,11 +95,21 @@ func HandleWSL(w http.ResponseWriter, r *http.Request) {
     }
     defer conn.Close() // Letakkan di awal fungsi untuk memastikan koneksi ditutup ketika fungsi selesai dijalankan
 
+	
     userId := r.URL.Query().Get("userId")
     clientsMu.Lock()
     clients[conn] = userId
     clientsMu.Unlock()
+	
+	userIdInt, err := strconv.Atoi(userId)
+    if err != nil {
+        log.Printf("Invalid user ID: %v", err)
+        return
+    }
 
+    userConnectionsMu.Lock()
+    userConnections[userIdInt] = conn
+    userConnectionsMu.Unlock()
     log.Println("UserId:", userId, "Connected")
 
 	for {
@@ -132,26 +147,33 @@ func HandleWSL(w http.ResponseWriter, r *http.Request) {
 }
 
 func HandleMessages() {
-	for {
-		msg := <-broadcast
+    for {
+        msg := <-broadcast
 
-		// Konversi UserID dan UserID2 ke string
-		userIDStr := strconv.Itoa(msg.UserID)
-		userID2Str := strconv.Itoa(msg.UserID2)
+        userConnectionsMu.Lock()
+        // Send the message to the recipient.
+        if recipientConn, ok := userConnections[msg.UserID2]; ok {
+            if err := recipientConn.WriteJSON(msg); err != nil {
+                log.Printf("Error sending to UserID2: %v", err)
+                recipientConn.Close()
+                delete(userConnections, msg.UserID2)
+            }
+        }
 
-		clientsMu.Lock()
-		// Iterasi melalui semua klien untuk menemukan dan mengirim pesan ke UserID dan UserID2
-		for client, uId := range clients {
-			// Cek apakah client adalah UserID atau UserID2
-			if uId == userIDStr || uId == userID2Str {
-				if err := client.WriteJSON(msg); err != nil {
-					log.Printf("Error: %v", err)
-					client.Close()
-					delete(clients, client)
-				}
-			}
-		}
-		clientsMu.Unlock()
-	}
+        // Also, update the sender's sidebar.
+        if senderConn, ok := userConnections[msg.UserID]; ok {
+            // Construct sidebar update message or use msg to send the sidebar update
+            sidebarUpdate := Response{
+                UserID:  msg.UserID,
+                Sidebar: msg.Sidebar,
+            }
+            if err := senderConn.WriteJSON(sidebarUpdate); err != nil {
+                log.Printf("Error sending sidebar update to UserID: %v", err)
+                senderConn.Close()
+                delete(userConnections, msg.UserID)
+            }
+        }
+        userConnectionsMu.Unlock()
+    }
 }
 
