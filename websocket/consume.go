@@ -74,31 +74,35 @@ func CreateClient(conn *websocket.Conn, id int) *Client {
 }
 
 func HandleWSL(w http.ResponseWriter, r *http.Request) {
-
 	conn, err := upgrader.Upgrade(w, r, nil)
 	if err != nil {
-		log.Printf("Upgraded failed")
+		log.Printf("Upgrade failed: %v", err)
 		return
 	}
 	defer conn.Close()
 
 	userId := r.URL.Query().Get("userId")
-
-	i, err := strconv.Atoi(userId)
+	userIdInt, err := strconv.Atoi(userId)
 	if err != nil {
-		log.Println("Error parse string")
+		log.Printf("Error parsing user ID: %v", err)
+		return
 	}
 
-	clients[conn] = i
+	// Safely add connection to the clients map
+	mutex.Lock()
+	clients[conn] = userIdInt
+	mutex.Unlock()
 
-	log.Println("UserId :", userId, "Connected")
-
+	log.Printf("UserID %d connected", userIdInt)
 	for {
 		var msg RequestConversation
 		err := conn.ReadJSON(&msg)
 		if err != nil {
+			log.Printf("Error reading JSON: %v", err)
+			mutex.Lock()
 			delete(clients, conn)
-			break
+			mutex.Unlock()
+			return
 		}
 
 		// sidebars := msg.Sidebars
@@ -126,20 +130,40 @@ func HandleWSL(w http.ResponseWriter, r *http.Request) {
 
 }
 
-func HandleMessages() {
-	for {
-		log.Println("Waiting for message")
-		msg := <-broadcast
-		log.Println("Getting message from :", msg.UserID, "to :", msg.UserID2)
+// func HandleMessages() {
+// 	for {
+// 		log.Println("Waiting for message")
+// 		msg := <-broadcast
+// 		log.Println("Getting message from :", msg.UserID, "to :", msg.UserID2)
 
-		// senderIdStr := strconv.Itoa(msg.UserID)
-		// receiverIdStr := strconv.Itoa(msg.UserID2)
-		log.Println(msg)
+// 		// senderIdStr := strconv.Itoa(msg.UserID)
+// 		// receiverIdStr := strconv.Itoa(msg.UserID2)
+// 		log.Println(msg)
+// 		mutex.Lock()
+// 		for client, uId := range clients {
+// 			if uId == msg.UserID2 || uId == msg.UserID {
+// 				if err := client.WriteJSON(msg); err != nil {
+// 					log.Printf("Error: %v", err)
+// 					client.Close()
+// 					delete(clients, client)
+// 				}
+// 			}
+// 		}
+// 		mutex.Unlock()
+// 	}
+// }
+
+func HandleMessages() {
+	for msg := range broadcast {
+		log.Printf("Broadcasting message from: %d to: %d", msg.UserID, msg.UserID2)
+
 		mutex.Lock()
+		// Send the message to the recipient and the sender (for updating the sidebar)
 		for client, uId := range clients {
 			if uId == msg.UserID2 || uId == msg.UserID {
-				if err := client.WriteJSON(msg); err != nil {
-					log.Printf("Error: %v", err)
+				err := client.WriteJSON(msg)
+				if err != nil {
+					log.Printf("Error sending to client: %v", err)
 					client.Close()
 					delete(clients, client)
 				}
