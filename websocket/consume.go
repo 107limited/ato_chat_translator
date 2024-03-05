@@ -134,10 +134,10 @@ func HandleMessages() {
 
 		// senderIdStr := strconv.Itoa(msg.UserID)
 		// receiverIdStr := strconv.Itoa(msg.UserID2)
-
+		log.Println(msg)
 		mutex.Lock()
 		for client, uId := range clients {
-			if uId == msg.UserID || uId == msg.UserID2 {
+			if uId == msg.UserID2 || uId == msg.UserID {
 				if err := client.WriteJSON(msg); err != nil {
 					log.Printf("Error: %v", err)
 					client.Close()
@@ -145,6 +145,6 @@ func HandleMessages() {
 				}
 			}
 		}
-
+		mutex.Unlock()
 	}
 }
