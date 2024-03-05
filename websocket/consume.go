@@ -4,6 +4,7 @@ import (
 	"log"
 	"net/http"
 	"strconv"
+	"sync"
 
 	"github.com/gorilla/websocket"
 )
@@ -56,15 +57,19 @@ type Messages struct {
 
 type Client struct {
 	Conn *websocket.Conn
-	Id   string
+	Id   int
 }
 
-var clients = make(map[*websocket.Conn]string)
+var clients = make(map[*websocket.Conn]int)
 
 // var broadcast = make(chan Messages)
 var broadcast = make(chan Response)
+var mutex = &sync.Mutex{}
 
-func CreateClient(conn *websocket.Conn, id string) *Client {
+func CreateClient(conn *websocket.Conn, id int) *Client {
+	mutex.Lock()
+	defer mutex.Unlock()
+	clients[conn] = id
 	return &Client{Conn: conn, Id: id}
 }
 
@@ -78,7 +83,13 @@ func HandleWSL(w http.ResponseWriter, r *http.Request) {
 	defer conn.Close()
 
 	userId := r.URL.Query().Get("userId")
-	clients[conn] = userId
+
+	i, err := strconv.Atoi(userId)
+	if err != nil {
+		log.Println("Error parse string")
+	}
+
+	clients[conn] = i
 
 	log.Println("UserId :", userId, "Connected")
 
@@ -121,26 +132,12 @@ func HandleMessages() {
 		msg := <-broadcast
 		log.Println("Getting message from :", msg.UserID, "to :", msg.UserID2)
 
-		parseStr := strconv.Itoa(msg.UserID2)
+		// senderIdStr := strconv.Itoa(msg.UserID)
+		// receiverIdStr := strconv.Itoa(msg.UserID2)
 
-		if parseStr != "" {
-			for client, uId := range clients {
-				if uId == parseStr {
-					if err := client.WriteJSON(msg); err != nil {
-						log.Printf("Error: %v", err)
-						client.Close()
-						delete(clients, client)
-					}
-				}
-				if err := client.WriteJSON(msg); err != nil {
-					log.Printf("Error: %v", err)
-					client.Close()
-					delete(clients, client)
-				}
-			}
-
-		} else {
-			for client := range clients {
+		mutex.Lock()
+		for client, uId := range clients {
+			if uId == msg.UserID || uId == msg.UserID2 {
 				if err := client.WriteJSON(msg); err != nil {
 					log.Printf("Error: %v", err)
 					client.Close()
