@@ -14,6 +14,7 @@ import (
 	"time"
 
 	"github.com/google/uuid"
+	"github.com/sirupsen/logrus"
 	"golang.org/x/net/websocket"
 
 	"net/http"
@@ -51,10 +52,16 @@ func getFromTemporaryStorage(key string) (string, error) {
 }
 
 func (s *Server) RegisterUserHandler(w http.ResponseWriter, r *http.Request) {
+
+	var logEntry = logrus.WithFields(logrus.Fields{
+		"handler": "RegisterUserHandler",
+	})
+
 	var userData models.RegistrationValidation
 	decoder := json.NewDecoder(r.Body)
 	if err := decoder.Decode(&userData); err != nil {
 		http.Error(w, err.Error(), http.StatusBadRequest)
+		logEntry.WithError(err).Error("Failed to decode user data")
 		return
 	}
 
@@ -109,6 +116,13 @@ func (s *Server) RegisterUserHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	// After successful token creation and before returning success response
+	logEntry.WithFields(logrus.Fields{
+		"email":     userData.Email,
+		"companyID": userData.CompanyID,
+		"token":     token, // Assuming token variable is available here
+	}).Info("Registration successful. Token generated for updating personal data.")
+
 	// Menyiapkan respons dengan informasi akun
 	response := map[string]interface{}{
 		"message": "Registration initiated successfully. Please complete your personal data.",
@@ -130,41 +144,45 @@ func (s *Server) PersonalDataHandler(w http.ResponseWriter, r *http.Request) {
 	var personalData models.PersonalData
 	decoder := json.NewDecoder(r.Body)
 	if err := decoder.Decode(&personalData); err != nil {
+		log.Printf("Error decoding personal data: %v", err)
 		http.Error(w, err.Error(), http.StatusBadRequest)
 		return
 	}
 
 	authToken := r.Header.Get("Authorization")
-	email, companyID, hashedPasswordKey, err := jwtforreg.ValidateTokenAndGetHashedPasswordKey(authToken) // Fungsi ini perlu dimodifikasi untuk mengekstrak hashedPasswordKey dari token
+	email, companyID, hashedPasswordKey, err := jwtforreg.ValidateTokenAndGetHashedPasswordKey(authToken)
 	if err != nil {
+		log.Printf("Invalid token: %v", err)
 		http.Error(w, "Invalid token: "+err.Error(), http.StatusUnauthorized)
 		return
 	}
 
 	// Gunakan hashedPasswordKey untuk mengambil hashed password dari tempat penyimpanan sementara
-	hashedPassword, err := getFromTemporaryStorage(hashedPasswordKey) // Pseudocode
+	hashedPassword, err := getFromTemporaryStorage(hashedPasswordKey)
 	if err != nil {
+		log.Printf("Failed to retrieve hashed password: %v", err)
 		http.Error(w, "Failed to retrieve hashed password: "+err.Error(), http.StatusInternalServerError)
 		return
 	}
 
 	roleID, err := dbAto.CheckRoleExistsOrCreate(s.DB, personalData.RoleName)
 	if err != nil {
+		log.Printf("Failed to process role: %v", err)
 		http.Error(w, "Failed to process role: "+err.Error(), http.StatusInternalServerError)
 		return
 	}
 
-	// Lanjutkan dengan memasukkan atau memperbarui data pengguna menggunakan roleID yang diperoleh
 	_, err = s.DB.Exec("INSERT INTO users (email, password, company_id, name, role_id) VALUES (?, ?, ?, ?, ?)",
 		email, hashedPassword, companyID, personalData.Name, roleID)
 	if err != nil {
+		log.Printf("Failed to save user to database: %v", err)
 		http.Error(w, "Failed to save user to database: "+err.Error(), http.StatusInternalServerError)
 		return
 	}
 
-	// Here, replace the token generation with dbAto.GenerateTokenAndLogin as previously done
 	token, err := dbAto.GenerateTokenAndLogin(s.DB, email, companyID)
 	if err != nil {
+		log.Printf("Failed to generate token and login: %v", err)
 		http.Error(w, "Failed to generate token and login: "+err.Error(), http.StatusInternalServerError)
 		return
 	}
@@ -189,6 +207,9 @@ func (s *Server) PersonalDataHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	// Assuming success at this point
+	log.Printf("User %v updated personal data and logged in successfully", email)
+
 	// Kirim token serta detail akun yang berhasil diupdate sebagai bagian dari respons
 	response := map[string]interface{}{
 		"message": "User logged in and updated Personal Data successfully",
@@ -209,23 +230,23 @@ func (s *Server) PersonalDataHandler(w http.ResponseWriter, r *http.Request) {
 
 // Misalkan Anda memiliki ConnectionManager yang sudah diperluas seperti ini:
 type ConnectionManager struct {
-    Connections map[string]map[*websocket.Conn]struct{}
-    UserConnections map[int]*websocket.Conn // Mapping dari userID ke WebSocket connection
-    mu sync.Mutex
+	Connections     map[string]map[*websocket.Conn]struct{}
+	UserConnections map[int]*websocket.Conn // Mapping dari userID ke WebSocket connection
+	mu              sync.Mutex
 }
 
 // Fungsi untuk menandai pengguna sebagai online dan menyimpan koneksi WebSocket mereka
 func (manager *ConnectionManager) SetUserOnline(userID int, conn *websocket.Conn) {
-    manager.mu.Lock()
-    defer manager.mu.Unlock()
-    manager.UserConnections[userID] = conn
+	manager.mu.Lock()
+	defer manager.mu.Unlock()
+	manager.UserConnections[userID] = conn
 }
 
 // Fungsi untuk menandai pengguna sebagai offline
 func (manager *ConnectionManager) SetUserOffline(userID int) {
-    manager.mu.Lock()
-    defer manager.mu.Unlock()
-    delete(manager.UserConnections, userID)
+	manager.mu.Lock()
+	defer manager.mu.Unlock()
+	delete(manager.UserConnections, userID)
 }
 
 func (s *Server) LoginUserHandler(w http.ResponseWriter, r *http.Request) {
